@@ -1,77 +1,161 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef } from "react";
-import * as THREE from "three";
+import { useEffect, useMemo, useRef } from "react";
+import type * as THREE from "three";
 import { OrbitControls } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
+import {
+  cameraDistance,
+  cinematicPose,
+  fitPose,
+  focusPose,
+  interpolatePose,
+  ISO_ELEVATION,
+  poseFromCamera,
+  posesClose,
+  positionForPose,
+  smoothingAmount,
+  zoomLimits,
+  type CameraPose,
+} from "@/lib/city/camera";
 import type { Building, CityLayout } from "@/lib/city/layout";
+import type { CameraCommand } from "@/features/explorer/store";
 
-export const HERO_SCALE = 0.78;
-const EXPLORER_SCALE = 1.5;
+const HERO_ZOOM = 1.2;
+const HERO_SPEED = 0.04;
+const CINEMATIC_FOLLOW_RATE = 1.8;
 
-/** Backs off in tall viewports, so the whole city still fits horizontally. */
-function explorerScale(aspect: number) {
-  return EXPLORER_SCALE / Math.min(1, aspect);
-}
-
-/** A fixed three-quarter view scaled to the city, so every city opens the same way. */
-export function homePosition(bounds: CityLayout["bounds"], scale = 1) {
-  const distance = Math.max(bounds.radius, 10) * scale;
-  return new THREE.Vector3(distance * 0.82, distance * 0.78 + bounds.maxHeight * 0.4, distance * 0.98);
-}
-
-interface OrbitRigProps {
-  bounds: CityLayout["bounds"];
-  focus: Building | null;
-  resetCount: number;
-  reducedMotion: boolean;
-}
-
-export function OrbitRig({ bounds, focus, resetCount, reducedMotion }: OrbitRigProps) {
-  const controls = useRef<OrbitControlsImpl>(null);
-  const camera = useThree((state) => state.camera);
-  const get = useThree((state) => state.get);
-
-  // Where the camera is gliding to. Cleared once it lands or the user takes over.
-  const glide = useRef<{ target: THREE.Vector3; position: THREE.Vector3 | null } | null>(null);
-
-  useLayoutEffect(() => {
-    const { camera: current, size } = get();
-    current.position.copy(homePosition(bounds, explorerScale(size.width / size.height)));
-  }, [bounds, get]);
-
-  useEffect(() => {
-    if (!focus) return;
-    glide.current = {
-      target: new THREE.Vector3(focus.x, focus.height * 0.5, focus.z),
-      position: null,
-    };
-  }, [focus]);
-
-  useEffect(() => {
-    if (resetCount === 0) return;
-    const { size } = get();
-    glide.current = {
-      target: new THREE.Vector3(0, 0, 0),
-      position: homePosition(bounds, explorerScale(size.width / size.height)),
-    };
-  }, [resetCount, bounds, get]);
-
-  useFrame((_, delta) => {
-    const current = glide.current;
-    const orbit = controls.current;
-    if (!current || !orbit) return;
-
-    const amount = reducedMotion ? 1 : 1 - Math.exp(-delta * 4);
-    orbit.target.lerp(current.target, amount);
-    if (current.position) camera.position.lerp(current.position, amount);
+function applyPose(
+  camera: THREE.Camera,
+  orbit: OrbitControlsImpl | null,
+  pose: CameraPose,
+  distance: number,
+) {
+  camera.position.set(...positionForPose(pose, distance));
+  (camera as THREE.OrthographicCamera).zoom = pose.zoom;
+  (camera as THREE.OrthographicCamera).updateProjectionMatrix();
+  if (orbit) {
+    orbit.target.set(...pose.target);
     orbit.update();
+  } else {
+    camera.lookAt(...pose.target);
+  }
+}
 
-    const settled =
-      orbit.target.distanceTo(current.target) < 0.02 &&
-      (!current.position || camera.position.distanceTo(current.position) < 0.05);
-    if (settled) glide.current = null;
+function readPose(camera: THREE.Camera, orbit: OrbitControlsImpl): CameraPose {
+  return poseFromCamera(
+    camera.position.toArray() as CameraPose["target"],
+    orbit.target.toArray() as CameraPose["target"],
+    (camera as THREE.OrthographicCamera).zoom,
+  );
+}
+
+interface ExplorerRigProps {
+  bounds: CityLayout["bounds"];
+  selected: Building | null;
+  command: CameraCommand;
+  cinematic: boolean;
+  reducedMotion: boolean;
+  onUserInteract: () => void;
+}
+
+export function ExplorerRig({
+  bounds,
+  selected,
+  command,
+  cinematic,
+  reducedMotion,
+  onUserInteract,
+}: ExplorerRigProps) {
+  const controls = useRef<OrbitControlsImpl>(null);
+  const get = useThree((state) => state.get);
+  const invalidate = useThree((state) => state.invalidate);
+  const width = useThree((state) => state.size.width);
+  const height = useThree((state) => state.size.height);
+
+  const viewport = useMemo(() => ({ width, height }), [width, height]);
+  const distance = useMemo(() => cameraDistance(bounds), [bounds]);
+  const home = useMemo(() => fitPose(bounds, viewport), [bounds, viewport]);
+  const limits = zoomLimits(home.zoom);
+
+  /** Applied immediately on the next frame. */
+  const jump = useRef<CameraPose | null>(null);
+  /** Glided towards, then cleared. */
+  const goal = useRef<CameraPose | null>(null);
+  const flight = useRef<{ base: CameraPose; elapsed: number } | null>(null);
+  /** Once the user has placed the view, resizing shouldn't take it away from them. */
+  const userMoved = useRef(false);
+
+  useEffect(() => {
+    if (!userMoved.current) {
+      jump.current = home;
+      invalidate();
+    }
+  }, [home, invalidate]);
+
+  useEffect(() => {
+    if (!selected || !controls.current) return;
+    userMoved.current = true;
+    goal.current = focusPose(selected, readPose(get().camera, controls.current), viewport);
+    invalidate();
+  }, [selected, viewport, get, invalidate]);
+
+  useEffect(() => {
+    if (command.count === 0 || !controls.current) return;
+    if (command.type === "reset") {
+      userMoved.current = false;
+      goal.current = home;
+    } else {
+      // Fit keeps the angle the user chose.
+      const current = readPose(get().camera, controls.current);
+      goal.current = fitPose(bounds, viewport, current.azimuth, current.elevation);
+    }
+    invalidate();
+    // Only a new command should trigger this, not a resize.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [command.count]);
+
+  useFrame((state, delta) => {
+    const orbit = controls.current;
+    if (!orbit) return;
+
+    if (jump.current) {
+      applyPose(state.camera, orbit, jump.current, distance);
+      jump.current = null;
+    }
+
+    if (cinematic) {
+      goal.current = null;
+      const current = readPose(state.camera, orbit);
+      flight.current ??= {
+        base: { ...home, azimuth: current.azimuth, elevation: ISO_ELEVATION },
+        elapsed: 0,
+      };
+      flight.current.elapsed += Math.min(delta, 0.1);
+      const pose = cinematicPose(flight.current.base, flight.current.elapsed);
+      applyPose(
+        state.camera,
+        orbit,
+        interpolatePose(current, pose, smoothingAmount(delta, CINEMATIC_FOLLOW_RATE)),
+        distance,
+      );
+      return;
+    }
+    flight.current = null;
+
+    if (goal.current) {
+      const current = readPose(state.camera, orbit);
+      const next = reducedMotion
+        ? goal.current
+        : interpolatePose(current, goal.current, smoothingAmount(delta));
+      applyPose(state.camera, orbit, next, distance);
+      if (posesClose(next, goal.current)) {
+        applyPose(state.camera, orbit, goal.current, distance);
+        goal.current = null;
+      }
+      state.invalidate();
+    }
   });
 
   return (
@@ -79,27 +163,41 @@ export function OrbitRig({ bounds, focus, resetCount, reducedMotion }: OrbitRigP
       ref={controls}
       makeDefault
       enableDamping={!reducedMotion}
-      dampingFactor={0.08}
-      maxPolarAngle={Math.PI / 2.1}
-      minDistance={8}
-      maxDistance={Math.max(bounds.radius, 10) * 4}
+      dampingFactor={0.1}
+      screenSpacePanning={false}
+      minPolarAngle={0.12}
+      maxPolarAngle={Math.PI / 2.15}
+      minZoom={limits.min}
+      maxZoom={limits.max}
       onStart={() => {
-        glide.current = null;
+        goal.current = null;
+        userMoved.current = true;
+        onUserInteract();
       }}
     />
   );
 }
 
 /** Slow, non-interactive orbit for the landing page. Still when reduced motion is requested. */
-export function HeroRig({ bounds, reducedMotion }: { bounds: CityLayout["bounds"]; reducedMotion: boolean }) {
-  const home = useRef(homePosition(bounds, HERO_SCALE));
-  const { camera } = useThree();
+export function HeroRig({
+  bounds,
+  reducedMotion,
+}: {
+  bounds: CityLayout["bounds"];
+  reducedMotion: boolean;
+}) {
+  const invalidate = useThree((state) => state.invalidate);
+  const distance = useMemo(() => cameraDistance(bounds), [bounds]);
+  useEffect(() => invalidate(), [invalidate]);
 
-  useFrame(({ clock }) => {
-    const angle = Math.atan2(home.current.x, home.current.z) + (reducedMotion ? 0 : clock.elapsedTime * 0.035);
-    const radius = Math.hypot(home.current.x, home.current.z);
-    camera.position.set(Math.sin(angle) * radius, home.current.y, Math.cos(angle) * radius);
-    camera.lookAt(0, bounds.maxHeight * 0.1, 0);
+  useFrame((state) => {
+    const fit = fitPose(bounds, state.size);
+    const pose: CameraPose = {
+      ...fit,
+      zoom: fit.zoom * HERO_ZOOM,
+      azimuth: fit.azimuth + (reducedMotion ? 0 : state.clock.elapsedTime * HERO_SPEED),
+    };
+    applyPose(state.camera, null, pose, distance);
   });
 
   return null;
