@@ -1,139 +1,205 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Canvas } from "@react-three/fiber";
-import { Grid } from "@react-three/drei";
-import { buildAdjacency, neighbourhood } from "@/lib/graph/queries";
+import { memo, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { Canvas, useFrame } from "@react-three/fiber";
+import { useExplorerStore } from "@/features/explorer/store";
+import { ambientOpacity, selectAmbientConnections } from "@/lib/city/arcs";
+import { cameraDistance } from "@/lib/city/camera";
+import { computeHighlight } from "@/lib/city/highlight";
+import type { Building, CityLayout } from "@/lib/city/layout";
+import {
+  detectQualityTier,
+  FrameGovernor,
+  lowerTier,
+  QUALITY_PRESETS,
+  type QualityTier,
+} from "@/lib/city/quality";
+import { buildAdjacency } from "@/lib/graph/queries";
 import type { CodeGraph } from "@/lib/graph/schema";
-import type { CityLayout } from "@/lib/city/layout";
+import { Beacons, GroundGlow } from "./BuildingAccents";
 import { Buildings } from "./Buildings";
-import { HERO_SCALE, HeroRig, OrbitRig, homePosition } from "./CameraRig";
+import { ExplorerRig, HeroRig } from "./CameraRig";
 import { CanvasErrorBoundary } from "./CanvasErrorBoundary";
 import { Connections } from "./Connections";
 import { Districts } from "./Districts";
 import { LabelProjector, type LabelAnchor } from "./LabelProjector";
+import { Platform } from "./Platform";
 import { useReducedMotion } from "./use-reduced-motion";
 
 const BACKGROUND = "#05070f";
-const EMPTY = new Set<string>();
-const ACTIVE_LABEL = "__active";
-
-interface Selection {
-  selectedId: string | null;
-  hoveredId: string | null;
-  showConnections: boolean;
-  cameraResetCount: number;
-  onHover: (id: string | null) => void;
-  onSelect: (id: string | null) => void;
-}
+const HERO_CONNECTION_LIMIT = 150;
+const TOOLTIP_OFFSET = 0.6;
+const ACCENT_REFERENCE_RADIUS = 45;
 
 interface CityCanvasProps {
   graph: CodeGraph;
   city: CityLayout;
-  /** Omit for the non-interactive landing page view. */
-  selection?: Selection;
+  /** "hero" is the non-interactive landing page view. */
+  mode: "hero" | "explorer";
   fallback: ReactNode;
 }
 
-export default function CityCanvas({ graph, city, selection, fallback }: CityCanvasProps) {
+function readDevice(fileCount: number): QualityTier {
+  const nav = navigator as Navigator & { deviceMemory?: number };
+  return detectQualityTier({
+    memoryGb: nav.deviceMemory,
+    cores: nav.hardwareConcurrency,
+    coarsePointer: window.matchMedia("(pointer: coarse)").matches,
+    fileCount,
+  });
+}
+
+export default function CityCanvas({ graph, city, mode, fallback }: CityCanvasProps) {
+  const interactive = mode === "explorer";
   const container = useRef<HTMLDivElement>(null);
+  const labelOverlay = useRef<HTMLDivElement>(null);
   const visible = useIsVisible(container);
   const reducedMotion = useReducedMotion();
-  const adjacency = useMemo(() => buildAdjacency(graph), [graph]);
 
-  const selectedId = selection?.selectedId ?? null;
-  const activeId = selectedId ?? selection?.hoveredId ?? null;
-  const focus = useMemo(
-    () => (activeId ? neighbourhood(adjacency, activeId) : null),
-    [adjacency, activeId],
+  const selectedId = useExplorerStore((s) => (interactive ? s.selectedId : null));
+  const hoveredId = useExplorerStore((s) => (interactive ? s.hoveredId : null));
+  const showConnections = useExplorerStore((s) => !interactive || s.showConnections);
+  const cinematicWanted = useExplorerStore((s) => interactive && s.cinematic);
+  const command = useExplorerStore((s) => s.cameraCommand);
+  const select = useExplorerStore((s) => s.select);
+  const hover = useExplorerStore((s) => s.hover);
+  const stopCinematic = useExplorerStore((s) => s.stopCinematic);
+  const setRenderInfo = useExplorerStore((s) => s.setRenderInfo);
+
+  const [tier, setTier] = useState<QualityTier>(() => readDevice(graph.files.length));
+  const preset = QUALITY_PRESETS[tier];
+  // Antialiasing is fixed when the WebGL context is created, so it keeps its first value.
+  const [antialias] = useState(preset.antialias);
+
+  const adjacency = useMemo(() => buildAdjacency(graph), [graph]);
+  const highlight = useMemo(
+    () => computeHighlight(adjacency, selectedId, hoveredId),
+    [adjacency, selectedId, hoveredId],
   );
-  const emphasized = useMemo(() => (activeId ? new Set([activeId]) : EMPTY), [activeId]);
 
   const byId = useMemo(() => new Map(city.buildings.map((b) => [b.id, b])), [city.buildings]);
   const selected = selectedId ? (byId.get(selectedId) ?? null) : null;
-  const labelled = activeId ? (byId.get(activeId) ?? null) : null;
+  const tooltipId = hoveredId ?? selectedId;
+  const tooltipBuilding = tooltipId ? (byId.get(tooltipId) ?? null) : null;
+  const activeBuilding = highlight.activeId ? byId.get(highlight.activeId) : undefined;
 
-  const fog = useMemo(
-    () => ({
-      color: BACKGROUND,
-      near: Math.max(city.bounds.radius, 10) * 1.6,
-      far: Math.max(city.bounds.radius, 10) * 4.2,
-    }),
-    [city.bounds.radius],
+  const connectionLimit = interactive
+    ? preset.ambientConnections
+    : Math.min(preset.ambientConnections, HERO_CONNECTION_LIMIT);
+  const ambient = useMemo(
+    () => selectAmbientConnections(city.connections, city.buildings, connectionLimit),
+    [city.connections, city.buildings, connectionLimit],
   );
-  const home = useMemo(() => homePosition(city.bounds, HERO_SCALE), [city.bounds]);
 
-  const showDistrictLabels = Boolean(selection);
+  const districtLabels = useMemo(() => {
+    if (!interactive) return [];
+    return [...city.districts]
+      .filter((d) => d.fileIds.length > 0 || d.level === 0)
+      .sort((a, b) => b.width * b.depth - a.width * a.depth || (a.id < b.id ? -1 : 1))
+      .slice(0, preset.districtLabels);
+  }, [city.districts, interactive, preset.districtLabels]);
+
   const anchors = useMemo(() => {
-    const list: LabelAnchor[] = showDistrictLabels
-      ? city.districts.map((d) => ({
-          key: d.id,
-          text: d.label,
-          active: false,
-          position: [d.x - d.width / 2, 0.1, d.z + d.depth / 2],
-        }))
-      : [];
-    if (labelled) {
+    const list: LabelAnchor[] = districtLabels.map((d) => ({
+      key: d.id,
+      position: [d.x - d.width / 2, d.baseY + d.plateHeight, d.z + d.depth / 2],
+      floating: false,
+    }));
+    if (tooltipBuilding) {
       list.push({
-        key: ACTIVE_LABEL,
-        text: labelled.name,
-        active: true,
-        position: [labelled.x, labelled.height + 0.8, labelled.z],
+        key: "__tooltip",
+        position: [
+          tooltipBuilding.x,
+          tooltipBuilding.baseY + tooltipBuilding.height + TOOLTIP_OFFSET,
+          tooltipBuilding.z,
+        ],
+        floating: true,
       });
     }
     return list;
-  }, [city.districts, showDistrictLabels, labelled]);
-  const labelOverlay = useRef<HTMLDivElement>(null);
+  }, [districtLabels, tooltipBuilding]);
+
+  useEffect(() => {
+    if (!interactive) return;
+    setRenderInfo({
+      tier,
+      shownConnections: ambient.length,
+      totalConnections: city.connections.length,
+    });
+  }, [interactive, tier, ambient.length, city.connections.length, setRenderInfo]);
+
+  const cinematic = cinematicWanted && !reducedMotion;
+  const pulsing = Boolean(highlight.activeId) && showConnections && !reducedMotion;
+  const animated = interactive ? cinematic || pulsing : !reducedMotion;
+  const frameloop = !visible ? "never" : animated ? "always" : "demand";
+
+  const distance = useMemo(() => cameraDistance(city.bounds), [city.bounds]);
+  const dimmed = highlight.activeId !== null;
+  // Bigger cities are viewed from further out, so beacons need more height to stay visible.
+  const accentScale = Math.max(1, city.bounds.radius / ACCENT_REFERENCE_RADIUS);
 
   return (
-    <div ref={container} className="absolute inset-0">
+    <div
+      ref={container}
+      className="absolute inset-0"
+      style={{ cursor: !interactive ? undefined : hoveredId ? "pointer" : "grab" }}
+    >
       <CanvasErrorBoundary fallback={fallback}>
         <Canvas
-          dpr={[1, 2]}
-          frameloop={visible ? "always" : "never"}
-          camera={{ position: home.toArray(), fov: 42, near: 0.5, far: fog.far * 2 }}
-          gl={{ antialias: true, powerPreference: "high-performance" }}
-          onPointerMissed={() => selection?.onSelect(null)}
-          style={selection ? undefined : { pointerEvents: "none" }}
-          aria-label="3D city visualization"
+          orthographic
+          dpr={preset.dpr}
+          frameloop={frameloop}
+          camera={{ position: [distance, distance, distance], zoom: 1, near: 0.1, far: distance * 4 }}
+          gl={{ antialias, powerPreference: "high-performance" }}
+          onPointerMissed={() => {
+            if (interactive) select(null);
+          }}
+          style={interactive ? undefined : { pointerEvents: "none" }}
+          role="img"
+          aria-label={
+            interactive
+              ? "3D city of the repository. The file list offers the same navigation by keyboard."
+              : "3D city rendered from sample data."
+          }
         >
           <color attach="background" args={[BACKGROUND]} />
-          <Grid
-            position={[0, -0.01, 0]}
-            infiniteGrid
-            cellSize={2}
-            cellThickness={0.5}
-            cellColor="#101a33"
-            sectionSize={10}
-            sectionThickness={0.9}
-            sectionColor="#1b2b52"
-            fadeDistance={fog.far}
-            fadeStrength={1.5}
+          <Platform bounds={city.bounds} />
+          <Districts
+            districts={city.districts}
+            activeDistrictId={activeBuilding?.districtId ?? null}
+            dimmed={dimmed}
           />
-          <Districts districts={city.districts} />
+          {preset.groundGlow && <GroundGlow buildings={city.buildings} dimmed={dimmed} />}
           <Buildings
             buildings={city.buildings}
-            focus={focus}
-            emphasized={emphasized}
-            fog={fog}
-            onHover={selection?.onHover}
-            onSelect={selection?.onSelect}
+            highlight={highlight}
+            radius={city.bounds.radius}
+            onHover={interactive ? hover : undefined}
+            onSelect={interactive ? select : undefined}
           />
-          {(selection?.showConnections ?? true) && (
+          <Beacons buildings={city.buildings} highlight={highlight} scale={accentScale} />
+          {showConnections && (
             <Connections
               buildings={city.buildings}
-              connections={city.connections}
-              activeId={activeId}
+              ambient={ambient}
+              all={city.connections}
+              ambientOpacity={ambientOpacity(ambient.length)}
+              activeId={highlight.activeId}
+              segments={preset.arcSegments}
               animate={!reducedMotion}
             />
           )}
           <LabelProjector anchors={anchors} overlay={labelOverlay} />
-          {selection ? (
-            <OrbitRig
+          <QualityProbe onDecline={() => setTier(lowerTier)} />
+          {process.env.NODE_ENV !== "production" && <RenderStats />}
+          {interactive ? (
+            <ExplorerRig
               bounds={city.bounds}
-              focus={selected}
-              resetCount={selection.cameraResetCount}
+              selected={selected}
+              command={command}
+              cinematic={cinematic}
               reducedMotion={reducedMotion}
+              onUserInteract={stopCinematic}
             />
           ) : (
             <HeroRig bounds={city.bounds} reducedMotion={reducedMotion} />
@@ -144,26 +210,72 @@ export default function CityCanvas({ graph, city, selection, fallback }: CityCan
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 overflow-hidden select-none"
         >
-          {anchors.map((anchor) => (
+          {districtLabels.map((d) => (
             <span
-              key={anchor.key}
-              className={`absolute top-0 left-0 hidden font-mono whitespace-nowrap ${
-                anchor.active
-                  ? "z-10 -translate-x-1/2 -translate-y-full rounded border border-white/15 bg-void/90 px-2 py-1 text-[11px] text-white"
-                  : "pt-1 text-[10px] tracking-wide text-slate-400/90 max-md:invisible"
-              }`}
+              key={d.id}
+              className="absolute top-0 left-0 hidden rounded-sm bg-void/60 px-1 font-mono text-[10px] tracking-wide whitespace-nowrap text-slate-300/90 transition-opacity duration-150 max-md:invisible"
             >
-              {anchor.text}
+              {d.label}
             </span>
           ))}
+          {tooltipBuilding && <BuildingTooltip building={tooltipBuilding} />}
         </div>
       </CanvasErrorBoundary>
     </div>
   );
 }
 
+const BuildingTooltip = memo(function BuildingTooltip({ building }: { building: Building }) {
+  return (
+    <div className="absolute top-0 left-0 z-10 hidden w-56 rounded-md border border-white/15 bg-void/95 p-2.5 shadow-lg shadow-black/40">
+      <p className="truncate text-[13px] font-medium text-white">{building.name}</p>
+      <p className="truncate font-mono text-[10px] text-faint">{building.path}</p>
+      <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-0.5 font-mono text-[11px]">
+        <dt className="text-faint">Type</dt>
+        <dd className="text-right text-text">{building.category}</dd>
+        <dt className="text-faint">Lines</dt>
+        <dd className="text-right text-text tabular-nums">{building.loc}</dd>
+        <dt className="text-faint">Complexity</dt>
+        <dd className="text-right text-text tabular-nums">{building.complexity}</dd>
+        <dt className="text-cyan">Imports</dt>
+        <dd className="text-right text-text tabular-nums">{building.fanOut}</dd>
+        <dt className="text-violet">Imported by</dt>
+        <dd className="text-right text-text tabular-nums">{building.fanIn}</dd>
+      </dl>
+      {building.landmark && (
+        <p className="mt-2 border-t border-white/10 pt-1.5 text-[11px] text-cyan">
+          Key module: among the most depended on
+        </p>
+      )}
+    </div>
+  );
+});
+
+/** Lowers quality if real frame times are too slow. */
+function QualityProbe({ onDecline }: { onDecline: () => void }) {
+  const governor = useRef(new FrameGovernor());
+  useFrame((_, delta) => {
+    if (governor.current.record(delta)) onDecline();
+  });
+  return null;
+}
+
+/** Development only: exposes renderer counters for checking performance. */
+function RenderStats() {
+  useFrame(({ gl }) => {
+    const { calls, triangles, lines, frame } = gl.info.render;
+    (window as unknown as { __GITVERSE_RENDER_STATS__: unknown }).__GITVERSE_RENDER_STATS__ = {
+      calls,
+      triangles,
+      lines,
+      frame,
+    };
+  });
+  return null;
+}
+
 /** Stops rendering while off-screen, so a scrolled-away canvas doesn't burn GPU. */
-function useIsVisible(ref: React.RefObject<HTMLElement | null>) {
+function useIsVisible(ref: RefObject<HTMLElement | null>) {
   const [visible, setVisible] = useState(true);
   useEffect(() => {
     if (!ref.current) return;
