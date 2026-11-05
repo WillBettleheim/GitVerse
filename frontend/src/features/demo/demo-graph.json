@@ -1,0 +1,774 @@
+{
+  "schemaVersion": 1,
+  "provenance": {
+    "kind": "demo",
+    "repository": "sample/lumen-store",
+    "note": "Hand-written sample data for a fictional project. Not the result of analyzing any real repository."
+  },
+  "files": [
+    {
+      "id": "package.json",
+      "path": "package.json",
+      "language": "json",
+      "loc": 48,
+      "complexity": 0
+    },
+    {
+      "id": "next.config.ts",
+      "path": "next.config.ts",
+      "language": "typescript",
+      "loc": 32,
+      "complexity": 2
+    },
+    {
+      "id": "src/app/layout.tsx",
+      "path": "src/app/layout.tsx",
+      "language": "tsx",
+      "loc": 64,
+      "complexity": 3
+    },
+    {
+      "id": "src/app/page.tsx",
+      "path": "src/app/page.tsx",
+      "language": "tsx",
+      "loc": 142,
+      "complexity": 8
+    },
+    {
+      "id": "src/app/cart/page.tsx",
+      "path": "src/app/cart/page.tsx",
+      "language": "tsx",
+      "loc": 188,
+      "complexity": 14
+    },
+    {
+      "id": "src/app/checkout/page.tsx",
+      "path": "src/app/checkout/page.tsx",
+      "language": "tsx",
+      "loc": 326,
+      "complexity": 27
+    },
+    {
+      "id": "src/app/product/page.tsx",
+      "path": "src/app/product/page.tsx",
+      "language": "tsx",
+      "loc": 241,
+      "complexity": 16
+    },
+    {
+      "id": "src/app/orders/page.tsx",
+      "path": "src/app/orders/page.tsx",
+      "language": "tsx",
+      "loc": 174,
+      "complexity": 11
+    },
+    {
+      "id": "src/components/Header.tsx",
+      "path": "src/components/Header.tsx",
+      "language": "tsx",
+      "loc": 118,
+      "complexity": 7
+    },
+    {
+      "id": "src/components/Footer.tsx",
+      "path": "src/components/Footer.tsx",
+      "language": "tsx",
+      "loc": 58,
+      "complexity": 2
+    },
+    {
+      "id": "src/components/Button.tsx",
+      "path": "src/components/Button.tsx",
+      "language": "tsx",
+      "loc": 72,
+      "complexity": 5
+    },
+    {
+      "id": "src/components/Modal.tsx",
+      "path": "src/components/Modal.tsx",
+      "language": "tsx",
+      "loc": 134,
+      "complexity": 10
+    },
+    {
+      "id": "src/components/cart/CartDrawer.tsx",
+      "path": "src/components/cart/CartDrawer.tsx",
+      "language": "tsx",
+      "loc": 212,
+      "complexity": 17
+    },
+    {
+      "id": "src/components/cart/CartLine.tsx",
+      "path": "src/components/cart/CartLine.tsx",
+      "language": "tsx",
+      "loc": 96,
+      "complexity": 6
+    },
+    {
+      "id": "src/components/cart/CartSummary.tsx",
+      "path": "src/components/cart/CartSummary.tsx",
+      "language": "tsx",
+      "loc": 124,
+      "complexity": 9
+    },
+    {
+      "id": "src/components/catalog/ProductCard.tsx",
+      "path": "src/components/catalog/ProductCard.tsx",
+      "language": "tsx",
+      "loc": 108,
+      "complexity": 6
+    },
+    {
+      "id": "src/components/catalog/ProductGrid.tsx",
+      "path": "src/components/catalog/ProductGrid.tsx",
+      "language": "tsx",
+      "loc": 86,
+      "complexity": 5
+    },
+    {
+      "id": "src/components/catalog/Filters.tsx",
+      "path": "src/components/catalog/Filters.tsx",
+      "language": "tsx",
+      "loc": 263,
+      "complexity": 24
+    },
+    {
+      "id": "src/hooks/useCart.ts",
+      "path": "src/hooks/useCart.ts",
+      "language": "typescript",
+      "loc": 94,
+      "complexity": 8
+    },
+    {
+      "id": "src/hooks/useProducts.ts",
+      "path": "src/hooks/useProducts.ts",
+      "language": "typescript",
+      "loc": 76,
+      "complexity": 7
+    },
+    {
+      "id": "src/hooks/useSession.ts",
+      "path": "src/hooks/useSession.ts",
+      "language": "typescript",
+      "loc": 62,
+      "complexity": 5
+    },
+    {
+      "id": "src/store/cartStore.ts",
+      "path": "src/store/cartStore.ts",
+      "language": "typescript",
+      "loc": 168,
+      "complexity": 15
+    },
+    {
+      "id": "src/store/uiStore.ts",
+      "path": "src/store/uiStore.ts",
+      "language": "typescript",
+      "loc": 54,
+      "complexity": 3
+    },
+    {
+      "id": "src/lib/api/client.ts",
+      "path": "src/lib/api/client.ts",
+      "language": "typescript",
+      "loc": 196,
+      "complexity": 19
+    },
+    {
+      "id": "src/lib/api/products.ts",
+      "path": "src/lib/api/products.ts",
+      "language": "typescript",
+      "loc": 88,
+      "complexity": 6
+    },
+    {
+      "id": "src/lib/api/orders.ts",
+      "path": "src/lib/api/orders.ts",
+      "language": "typescript",
+      "loc": 112,
+      "complexity": 9
+    },
+    {
+      "id": "src/lib/format.ts",
+      "path": "src/lib/format.ts",
+      "language": "typescript",
+      "loc": 66,
+      "complexity": 6
+    },
+    {
+      "id": "src/lib/validation.ts",
+      "path": "src/lib/validation.ts",
+      "language": "typescript",
+      "loc": 148,
+      "complexity": 13
+    },
+    {
+      "id": "src/server/index.ts",
+      "path": "src/server/index.ts",
+      "language": "typescript",
+      "loc": 74,
+      "complexity": 4
+    },
+    {
+      "id": "src/server/routes/products.ts",
+      "path": "src/server/routes/products.ts",
+      "language": "typescript",
+      "loc": 158,
+      "complexity": 12
+    },
+    {
+      "id": "src/server/routes/orders.ts",
+      "path": "src/server/routes/orders.ts",
+      "language": "typescript",
+      "loc": 232,
+      "complexity": 21
+    },
+    {
+      "id": "src/server/routes/payments.ts",
+      "path": "src/server/routes/payments.ts",
+      "language": "typescript",
+      "loc": 204,
+      "complexity": 23
+    },
+    {
+      "id": "src/server/routes/auth.ts",
+      "path": "src/server/routes/auth.ts",
+      "language": "typescript",
+      "loc": 186,
+      "complexity": 18
+    },
+    {
+      "id": "src/server/services/catalogService.ts",
+      "path": "src/server/services/catalogService.ts",
+      "language": "typescript",
+      "loc": 284,
+      "complexity": 26
+    },
+    {
+      "id": "src/server/services/orderService.ts",
+      "path": "src/server/services/orderService.ts",
+      "language": "typescript",
+      "loc": 512,
+      "complexity": 48
+    },
+    {
+      "id": "src/server/services/paymentService.ts",
+      "path": "src/server/services/paymentService.ts",
+      "language": "typescript",
+      "loc": 438,
+      "complexity": 52
+    },
+    {
+      "id": "src/server/services/pricingEngine.ts",
+      "path": "src/server/services/pricingEngine.ts",
+      "language": "typescript",
+      "loc": 621,
+      "complexity": 67
+    },
+    {
+      "id": "src/server/services/authService.ts",
+      "path": "src/server/services/authService.ts",
+      "language": "typescript",
+      "loc": 267,
+      "complexity": 29
+    },
+    {
+      "id": "src/server/db/client.ts",
+      "path": "src/server/db/client.ts",
+      "language": "typescript",
+      "loc": 58,
+      "complexity": 4
+    },
+    {
+      "id": "src/server/db/schema.ts",
+      "path": "src/server/db/schema.ts",
+      "language": "typescript",
+      "loc": 342,
+      "complexity": 3
+    },
+    {
+      "id": "src/server/db/migrate.ts",
+      "path": "src/server/db/migrate.ts",
+      "language": "typescript",
+      "loc": 104,
+      "complexity": 11
+    },
+    {
+      "id": "src/server/middleware/auth.ts",
+      "path": "src/server/middleware/auth.ts",
+      "language": "typescript",
+      "loc": 92,
+      "complexity": 9
+    },
+    {
+      "id": "src/server/middleware/rateLimit.ts",
+      "path": "src/server/middleware/rateLimit.ts",
+      "language": "typescript",
+      "loc": 118,
+      "complexity": 12
+    },
+    {
+      "id": "tests/pricingEngine.test.ts",
+      "path": "tests/pricingEngine.test.ts",
+      "language": "typescript",
+      "loc": 388,
+      "complexity": 14
+    },
+    {
+      "id": "tests/orderService.test.ts",
+      "path": "tests/orderService.test.ts",
+      "language": "typescript",
+      "loc": 296,
+      "complexity": 11
+    },
+    {
+      "id": "tests/cartStore.test.ts",
+      "path": "tests/cartStore.test.ts",
+      "language": "typescript",
+      "loc": 154,
+      "complexity": 6
+    }
+  ],
+  "edges": [
+    {
+      "source": "src/app/layout.tsx",
+      "target": "src/components/Header.tsx",
+      "kind": "import"
+    },
+    {
+      "source": "src/app/layout.tsx",
+      "target": "src/components/Footer.tsx",
+      "kind": "import"
+    },
+    {
+      "source": "src/app/layout.tsx",
+      "target": "src/components/cart/CartDrawer.tsx",
+      "kind": "import"
+    },
+    {
+      "source": "src/app/page.tsx",
+      "target": "src/components/catalog/ProductGrid.tsx",
+      "kind": "import"
+    },
+    {
+      "source": "src/app/page.tsx",
+      "target": "src/components/catalog/Filters.tsx",
+      "kind": "import"
+    },
+    {
+      "source": "src/app/page.tsx",
+      "target": "src/hooks/useProducts.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/app/cart/page.tsx",
+      "target": "src/components/cart/CartLine.tsx",
+      "kind": "import"
+    },
+    {
+      "source": "src/app/cart/page.tsx",
+      "target": "src/components/cart/CartSummary.tsx",
+      "kind": "import"
+    },
+    {
+      "source": "src/app/cart/page.tsx",
+      "target": "src/hooks/useCart.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/app/checkout/page.tsx",
+      "target": "src/components/Button.tsx",
+      "kind": "import"
+    },
+    {
+      "source": "src/app/checkout/page.tsx",
+      "target": "src/components/Modal.tsx",
+      "kind": "import"
+    },
+    {
+      "source": "src/app/checkout/page.tsx",
+      "target": "src/components/cart/CartSummary.tsx",
+      "kind": "import"
+    },
+    {
+      "source": "src/app/checkout/page.tsx",
+      "target": "src/hooks/useCart.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/app/checkout/page.tsx",
+      "target": "src/hooks/useSession.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/app/checkout/page.tsx",
+      "target": "src/lib/api/orders.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/app/checkout/page.tsx",
+      "target": "src/lib/validation.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/app/product/page.tsx",
+      "target": "src/components/Button.tsx",
+      "kind": "import"
+    },
+    {
+      "source": "src/app/product/page.tsx",
+      "target": "src/hooks/useCart.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/app/product/page.tsx",
+      "target": "src/lib/api/products.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/app/product/page.tsx",
+      "target": "src/lib/format.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/app/orders/page.tsx",
+      "target": "src/hooks/useSession.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/app/orders/page.tsx",
+      "target": "src/lib/api/orders.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/app/orders/page.tsx",
+      "target": "src/lib/format.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/components/Header.tsx",
+      "target": "src/hooks/useCart.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/components/Header.tsx",
+      "target": "src/hooks/useSession.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/components/Header.tsx",
+      "target": "src/store/uiStore.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/components/Header.tsx",
+      "target": "src/components/Button.tsx",
+      "kind": "import"
+    },
+    {
+      "source": "src/components/Modal.tsx",
+      "target": "src/components/Button.tsx",
+      "kind": "import"
+    },
+    {
+      "source": "src/components/Modal.tsx",
+      "target": "src/store/uiStore.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/components/cart/CartDrawer.tsx",
+      "target": "src/components/cart/CartLine.tsx",
+      "kind": "import"
+    },
+    {
+      "source": "src/components/cart/CartDrawer.tsx",
+      "target": "src/components/cart/CartSummary.tsx",
+      "kind": "import"
+    },
+    {
+      "source": "src/components/cart/CartDrawer.tsx",
+      "target": "src/components/Button.tsx",
+      "kind": "import"
+    },
+    {
+      "source": "src/components/cart/CartDrawer.tsx",
+      "target": "src/hooks/useCart.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/components/cart/CartDrawer.tsx",
+      "target": "src/store/uiStore.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/components/cart/CartLine.tsx",
+      "target": "src/components/Button.tsx",
+      "kind": "import"
+    },
+    {
+      "source": "src/components/cart/CartLine.tsx",
+      "target": "src/lib/format.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/components/cart/CartSummary.tsx",
+      "target": "src/lib/format.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/components/cart/CartSummary.tsx",
+      "target": "src/hooks/useCart.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/components/catalog/ProductCard.tsx",
+      "target": "src/components/Button.tsx",
+      "kind": "import"
+    },
+    {
+      "source": "src/components/catalog/ProductCard.tsx",
+      "target": "src/lib/format.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/components/catalog/ProductCard.tsx",
+      "target": "src/hooks/useCart.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/components/catalog/ProductGrid.tsx",
+      "target": "src/components/catalog/ProductCard.tsx",
+      "kind": "import"
+    },
+    {
+      "source": "src/components/catalog/Filters.tsx",
+      "target": "src/components/Button.tsx",
+      "kind": "import"
+    },
+    {
+      "source": "src/components/catalog/Filters.tsx",
+      "target": "src/store/uiStore.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/hooks/useCart.ts",
+      "target": "src/store/cartStore.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/hooks/useProducts.ts",
+      "target": "src/lib/api/products.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/hooks/useSession.ts",
+      "target": "src/lib/api/client.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/store/cartStore.ts",
+      "target": "src/lib/validation.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/store/cartStore.ts",
+      "target": "src/lib/format.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/lib/api/products.ts",
+      "target": "src/lib/api/client.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/lib/api/orders.ts",
+      "target": "src/lib/api/client.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/lib/api/orders.ts",
+      "target": "src/lib/validation.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/server/index.ts",
+      "target": "src/server/routes/products.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/server/index.ts",
+      "target": "src/server/routes/orders.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/server/index.ts",
+      "target": "src/server/routes/payments.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/server/index.ts",
+      "target": "src/server/routes/auth.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/server/index.ts",
+      "target": "src/server/middleware/rateLimit.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/server/index.ts",
+      "target": "src/server/db/client.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/server/routes/products.ts",
+      "target": "src/server/services/catalogService.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/server/routes/orders.ts",
+      "target": "src/server/services/orderService.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/server/routes/orders.ts",
+      "target": "src/server/middleware/auth.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/server/routes/orders.ts",
+      "target": "src/lib/validation.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/server/routes/payments.ts",
+      "target": "src/server/services/paymentService.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/server/routes/payments.ts",
+      "target": "src/server/middleware/auth.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/server/routes/payments.ts",
+      "target": "src/lib/validation.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/server/routes/auth.ts",
+      "target": "src/server/services/authService.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/server/routes/auth.ts",
+      "target": "src/lib/validation.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/server/services/catalogService.ts",
+      "target": "src/server/db/client.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/server/services/catalogService.ts",
+      "target": "src/server/db/schema.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/server/services/catalogService.ts",
+      "target": "src/server/services/pricingEngine.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/server/services/orderService.ts",
+      "target": "src/server/db/client.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/server/services/orderService.ts",
+      "target": "src/server/db/schema.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/server/services/orderService.ts",
+      "target": "src/server/services/pricingEngine.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/server/services/orderService.ts",
+      "target": "src/server/services/paymentService.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/server/services/paymentService.ts",
+      "target": "src/server/db/client.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/server/services/paymentService.ts",
+      "target": "src/server/db/schema.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/server/services/pricingEngine.ts",
+      "target": "src/server/db/schema.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/server/services/pricingEngine.ts",
+      "target": "src/lib/format.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/server/services/authService.ts",
+      "target": "src/server/db/client.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/server/services/authService.ts",
+      "target": "src/server/db/schema.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/server/db/client.ts",
+      "target": "src/server/db/schema.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/server/db/migrate.ts",
+      "target": "src/server/db/client.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/server/db/migrate.ts",
+      "target": "src/server/db/schema.ts",
+      "kind": "import"
+    },
+    {
+      "source": "src/server/middleware/auth.ts",
+      "target": "src/server/services/authService.ts",
+      "kind": "import"
+    },
+    {
+      "source": "tests/pricingEngine.test.ts",
+      "target": "src/server/services/pricingEngine.ts",
+      "kind": "import"
+    },
+    {
+      "source": "tests/orderService.test.ts",
+      "target": "src/server/services/orderService.ts",
+      "kind": "import"
+    },
+    {
+      "source": "tests/orderService.test.ts",
+      "target": "src/server/services/paymentService.ts",
+      "kind": "import"
+    },
+    {
+      "source": "tests/cartStore.test.ts",
+      "target": "src/store/cartStore.ts",
+      "kind": "import"
+    }
+  ]
+}
