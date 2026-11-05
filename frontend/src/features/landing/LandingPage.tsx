@@ -9,19 +9,25 @@ const MAPPING: { code: string; city: string; rule: string; status: Status }[] = 
   {
     code: "Folders & packages",
     city: "Districts",
-    rule: "Each directory gets its own walled plot with a stable colour.",
+    rule: "Each directory is a raised plot, nested inside its parent's.",
     status: "live",
   },
   {
     code: "Files & modules",
     city: "Buildings",
-    rule: "More lines of code means a wider footprint.",
+    rule: "More lines of code means a wider footprint, and each file type has its own look.",
     status: "live",
   },
   {
     code: "Complexity",
     city: "Skyline",
     rule: "The most tangled files tower over the rest, so hotspots stand out.",
+    status: "live",
+  },
+  {
+    code: "Key modules",
+    city: "Beacons",
+    rule: "The files everything else depends on carry a light you can spot from anywhere.",
     status: "live",
   },
   {
