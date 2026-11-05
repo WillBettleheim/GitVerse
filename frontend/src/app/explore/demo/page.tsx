@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { DatasetSwitcher } from "@/features/demo/DatasetSwitcher";
 import { loadDemoGraph } from "@/features/demo/load-demo-graph";
 import { ExplorerShell } from "@/features/explorer/ExplorerShell";
 
@@ -8,5 +9,5 @@ export const metadata: Metadata = {
 };
 
 export default function DemoExplorerPage() {
-  return <ExplorerShell graph={loadDemoGraph()} />;
+  return <ExplorerShell graph={loadDemoGraph()} headerSlot={<DatasetSwitcher current="sample" />} />;
 }
