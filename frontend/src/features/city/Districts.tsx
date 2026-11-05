@@ -1,50 +1,114 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
+import { useThree } from "@react-three/fiber";
 import type { District } from "@/lib/city/layout";
 
-const PLATE_Y = 0.02;
-const BORDER_Y = 0.05;
-
-/** All district outlines share one geometry. */
-function buildBorders(districts: readonly District[]) {
-  const positions: number[] = [];
-  const colors: number[] = [];
-  const color = new THREE.Color();
-  for (const d of districts) {
-    const [x0, x1] = [d.x - d.width / 2, d.x + d.width / 2];
-    const [z0, z1] = [d.z - d.depth / 2, d.z + d.depth / 2];
-    positions.push(
-      x0, BORDER_Y, z0, x1, BORDER_Y, z0,
-      x1, BORDER_Y, z0, x1, BORDER_Y, z1,
-      x1, BORDER_Y, z1, x0, BORDER_Y, z1,
-      x0, BORDER_Y, z1, x0, BORDER_Y, z0,
+const vertexShader = /* glsl */ `
+  varying vec3 vLocal;
+  varying vec3 vNormalLocal;
+  varying vec3 vSize;
+  varying vec3 vTint;
+  void main() {
+    vLocal = position;
+    vNormalLocal = normal;
+    vSize = vec3(
+      length(instanceMatrix[0].xyz),
+      length(instanceMatrix[1].xyz),
+      length(instanceMatrix[2].xyz)
     );
-    color.set(d.color).multiplyScalar(0.7);
-    for (let i = 0; i < 8; i++) colors.push(color.r, color.g, color.b);
+    vTint = instanceColor;
+    gl_Position = projectionMatrix * viewMatrix * modelMatrix * instanceMatrix * vec4(position, 1.0);
   }
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
-  geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
-  return geometry;
+`;
+
+const fragmentShader = /* glsl */ `
+  uniform float uDim;
+  varying vec3 vLocal;
+  varying vec3 vNormalLocal;
+  varying vec3 vSize;
+  varying vec3 vTint;
+  void main() {
+    vec3 color;
+    if (vNormalLocal.y > 0.5) {
+      vec2 toEdge = (0.5 - abs(vLocal.xz)) * vSize.xz;
+      float edge = min(toEdge.x, toEdge.y);
+      float rim = 1.0 - smoothstep(0.0, 0.16, edge);
+      float wash = (1.0 - smoothstep(0.0, 2.2, edge)) * 0.05;
+      color = vTint * (0.04 + wash + rim * 0.8);
+    } else {
+      color = vTint * 0.3;
+    }
+    gl_FragColor = vec4(color * uDim, 1.0);
+    #include <colorspace_fragment>
+  }
+`;
+
+interface DistrictsProps {
+  districts: readonly District[];
+  activeDistrictId: string | null;
+  dimmed: boolean;
 }
 
-export function Districts({ districts }: { districts: readonly District[] }) {
-  const borders = useMemo(() => buildBorders(districts), [districts]);
-  useEffect(() => () => borders.dispose(), [borders]);
+/** Terraced plots, one level higher per folder depth. All one instanced mesh. */
+export const Districts = memo(function Districts({
+  districts,
+  activeDistrictId,
+  dimmed,
+}: DistrictsProps) {
+  const mesh = useRef<THREE.InstancedMesh>(null);
+  const invalidate = useThree((state) => state.invalidate);
+  const [uniforms] = useState(() => ({ uDim: { value: 1 } }));
+
+  const geometry = useMemo(() => {
+    const box = new THREE.BoxGeometry(1, 1, 1);
+    box.translate(0, 0.5, 0);
+    return box;
+  }, []);
+  useEffect(() => () => geometry.dispose(), [geometry]);
+
+  useLayoutEffect(() => {
+    const target = mesh.current;
+    if (!target) return;
+    const matrix = new THREE.Matrix4();
+    districts.forEach((d, index) => {
+      matrix.makeScale(d.width, d.plateHeight, d.depth);
+      matrix.setPosition(d.x, d.baseY, d.z);
+      target.setMatrixAt(index, matrix);
+    });
+    target.instanceMatrix.needsUpdate = true;
+  }, [districts]);
+
+  useLayoutEffect(() => {
+    const target = mesh.current;
+    if (!target) return;
+    const color = new THREE.Color();
+    districts.forEach((d, index) => {
+      // Plates dim with the city, except the one holding the active file.
+      const boost = d.id === activeDistrictId ? (dimmed ? 3 : 1.5) : 1;
+      target.setColorAt(index, color.set(d.color).multiplyScalar(boost));
+    });
+    if (target.instanceColor) target.instanceColor.needsUpdate = true;
+    invalidate();
+  }, [districts, activeDistrictId, dimmed, invalidate]);
+
+  if (districts.length === 0) return null;
 
   return (
-    <group>
-      {districts.map((d) => (
-        <mesh key={d.id} position={[d.x, PLATE_Y, d.z]} rotation-x={-Math.PI / 2} raycast={() => null}>
-          <planeGeometry args={[d.width, d.depth]} />
-          <meshBasicMaterial color={d.color} transparent opacity={0.05} depthWrite={false} />
-        </mesh>
-      ))}
-      <lineSegments geometry={borders} raycast={() => null}>
-        <lineBasicMaterial vertexColors transparent opacity={0.8} />
-      </lineSegments>
-    </group>
+    <instancedMesh
+      key={districts.length}
+      ref={mesh}
+      args={[geometry, undefined, districts.length]}
+      raycast={() => null}
+    >
+      <shaderMaterial
+        vertexShader={vertexShader}
+        fragmentShader={fragmentShader}
+        uniforms={uniforms}
+        uniforms-uDim-value={dimmed ? 0.45 : 1}
+        toneMapped={false}
+      />
+    </instancedMesh>
   );
-}
+});
