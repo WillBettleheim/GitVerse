@@ -52,11 +52,14 @@ Demo mode doesn't need the backend. To run only the frontend, use `make dev-fron
 ## What works today
 
 - **Landing page** with a live 3D city rendered from the sample graph
-- **Explorer** at `/explore/demo`:
-  - Orbit, zoom and pan
-  - Select a building by clicking it or using the file list
-  - Trace imports (cyan) and importers (violet), with pulses showing direction
-  - Filter files, toggle connections, reset the view
+- **Explorer** at `/explore/demo`, an isometric city generated from the graph:
+  - Nested districts, procedural buildings with a distinct look per file type, and beacons on key modules
+  - Orbit, zoom and pan, with smooth camera transitions
+  - Hover for a file tooltip; select by clicking a building or using the file list
+  - Trace imports (cyan) and importers (violet), with arrowheads and pulses showing direction
+  - Fit to city (`F`), reset view (`R`), clear selection (`Esc`), and an optional cinematic overview
+  - Respects reduced motion, and adapts quality to the device
+- **Stress-test cities** with generated data, at `/explore/demo/stress/100`, `/500` and `/1000`
 - **Deterministic city layout**: the same graph always builds the same city, whatever the input order
 - **API**: `/health`, `/api/v1/meta`, repository reference validation and request size limits
 
@@ -68,8 +71,8 @@ Demo mode doesn't need the backend. To run only the frontend, use `make dev-fron
 - Claude explanations
 - PostgreSQL persistence
 
-The demo city comes from `frontend/src/features/demo/demo-graph.json`. It's hand-written data for a
-fictional project, and the explorer always labels it as such. See
+The demo cities come from `frontend/src/features/demo`: hand-written data for a fictional project,
+and generated stress-test data. The explorer always labels both as sample data. See
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design and the security model.
 
 ## Configuration

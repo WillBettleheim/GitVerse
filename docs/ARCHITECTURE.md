@@ -53,34 +53,70 @@ The schema covers only what is rendered today. Commit history gets added when th
 
 | Code concept | City element | Rule |
 | --- | --- | --- |
-| Directory | District | One district per directory that directly holds files |
-| File | Building | Footprint grows with lines of code, height grows with complexity |
-| Import | Connection | Arc between rooftops |
+| Directory | District | A raised plot, nested inside its parent's. Folders that only wrap one subfolder are collapsed |
+| File | Building | Footprint from lines of code, height from complexity, both log-normalized against this graph |
+| File type | Facade and massing | Derived from the path: source, test, config, docs, style, data |
+| Central module | Landmark | Top 5% by importance, at most 40, with at least 2 importers. Gets setbacks and a beacon |
+| Import | Connection | Directional arc between rooftops |
 
-`frontend/src/lib/city/layout.ts` packs buildings into districts and districts into the city with
-shelf packing. Inputs are sorted by code unit, never `localeCompare`, so results don't vary by
-machine. Coordinates are rounded to fixed precision. District colour comes from a hash of the
-path, so a district keeps its colour as the repository changes.
+`frontend/src/lib/city/layout.ts` packs recursively with a skyline packer, trying a few target
+widths and keeping the most compact. Inputs are sorted by code unit, never `localeCompare`, so
+results don't vary by machine. Coordinates are rounded to fixed precision. Per-file variation comes
+from a hash of the file ID, and district colour from a hash of the path, so neither depends on input
+order or on what else is in the repository. Building IDs are file IDs.
 
-**Known limit:** districts are flat. Nested directories are placed as separate siblings, not inside
-their parents. A nested treemap should replace this before large real repositories are loaded.
+Normalizing against the graph means **a file's height can change when the repository's maximum
+changes**, and adding files can shift positions, because the packer re-runs. Layout is deterministic
+for a given graph, but not stable across different versions of a repository.
+
+Importance (`lib/graph/metrics.ts`) is a heuristic: mainly fan-in, then complexity, size and
+fan-out, with tests discounted. It uses direct imports only.
+
+## Rendering [built]
+
+Draw calls stay constant as file count grows: one instanced mesh each for buildings, plates, beacons
+and ground glow, plus one line geometry for ambient connections. Selecting a file adds two: its
+connection tubes and arrowheads.
+
+Measured in development on this project's Mac at 1440×900, with the browser pane hidden:
+
+| Files | Draw calls | Triangles | Frames while idle | Frames during cinematic |
+| --- | --- | --- | --- | --- |
+| 100 | 7 | 2.7k | 0 | not measured |
+| 500 | 7 | 12k | 0 | 60 fps |
+| 1,000 | 7 | 24k | 0 | 60 fps |
+
+**Rendering:** on demand, so an idle city renders nothing. It runs continuously only for the hero,
+cinematic flights and connection pulses, and stops when off-screen.
+
+**Quality:** `lib/city/quality.ts` picks a tier from what the browser reports, and `FrameGovernor`
+steps it down if real frames are too slow. It never steps back up, because a tier that oscillates is
+more distracting than a softer image. Tiers control pixel ratio, arc detail, how many connections
+show, label count and ground glow.
+
+**Visual limits:** past 5,000 files, the least important aren't drawn and the toolbar says how many
+were cut. Past each tier's connection limit, only those between the most important files show, and
+the toolbar says so. Selecting a file always shows all its own connections, up to 240.
+
+**Camera:** true orthographic isometric view. All pose maths is in `lib/city/camera.ts` with no
+Three.js dependency, and its tests check the results against a real Three.js camera.
 
 ## Frontend layout [built]
 
 ```
 frontend/src/
-  app/                 Routes: / (landing), /explore/demo (explorer)
-  lib/graph/           CodeGraph schema and adjacency queries
-  lib/city/            Pure layout: no React, no Three.js
+  app/                 Routes: / (landing), /explore/demo, /explore/demo/stress/[size]
+  lib/graph/           CodeGraph schema, adjacency, file categories, importance
+  lib/city/            Pure logic: layout, camera, highlight, arcs, quality. No React or WebGL
   features/city/       React Three Fiber scene
   features/explorer/   Explorer shell, panels, Zustand store
-  features/demo/       Demo data and its loader
+  features/demo/       Sample data, stress-test generator, dataset switcher
   features/landing/    Landing page sections
   lib/config.ts        Validated public environment config
 ```
 
-The 3D scene is loaded client-only. Buildings are one instanced mesh and connections one line
-geometry, so draw calls stay flat as file count grows.
+The 3D scene is loaded client-only. The explorer knows nothing about sample data: demo pages pass
+it a graph and a dataset switcher, as a real analysis page will pass it a real graph.
 
 ## Backend layout [built]
 
