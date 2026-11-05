@@ -1,48 +1,93 @@
 "use client";
 
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import type { ThreeEvent } from "@react-three/fiber";
+import { useThree, type ThreeEvent } from "@react-three/fiber";
+import { FILE_CATEGORIES } from "@/lib/graph/classify";
+import type { Highlight, HighlightState } from "@/lib/city/highlight";
 import type { Building } from "@/lib/city/layout";
 import { createBuildingMaterial } from "./building-material";
 
 const CLICK_DRAG_TOLERANCE_PX = 4;
-const DIMMED = 0.22;
-const HIGHLIGHT = 1.9;
+const CYAN = new THREE.Color("#22d3ee");
+const VIOLET = new THREE.Color("#a78bfa");
+const WHITE = new THREE.Color("#ffffff");
+
+/** Writes the colour a building gets in a highlight state. Reuses `out` to avoid allocation. */
+export function applyHighlightColor(out: THREE.Color, base: string, state: HighlightState) {
+  out.set(base);
+  switch (state) {
+    case "selected":
+      return out.lerp(WHITE, 0.4).multiplyScalar(1.7);
+    case "hovered":
+      return out.lerp(WHITE, 0.25).multiplyScalar(1.5);
+    case "dependency":
+      return out.lerp(CYAN, 0.7).multiplyScalar(1.25);
+    case "dependent":
+      return out.lerp(VIOLET, 0.7).multiplyScalar(1.25);
+    case "dimmed":
+      return out.multiplyScalar(0.14);
+    default:
+      return out;
+  }
+}
 
 interface BuildingsProps {
   buildings: readonly Building[];
-  /** When set, buildings outside this set are dimmed. */
-  focus: ReadonlySet<string> | null;
-  emphasized: ReadonlySet<string>;
-  fog: { color: string; near: number; far: number };
+  highlight: Highlight;
+  radius: number;
   onHover?: (id: string | null) => void;
   onSelect?: (id: string) => void;
 }
 
-/** One instanced mesh, so draw calls don't grow with file count. */
-export function Buildings({ buildings, focus, emphasized, fog, onHover, onSelect }: BuildingsProps) {
+/**
+ * One instanced mesh, so draw calls don't grow with file count. Each building's tiers are
+ * separate instances, and an index maps an instance back to its building.
+ */
+export const Buildings = memo(function Buildings({
+  buildings,
+  highlight,
+  radius,
+  onHover,
+  onSelect,
+}: BuildingsProps) {
   const mesh = useRef<THREE.InstancedMesh>(null);
+  const invalidate = useThree((state) => state.invalidate);
+
+  const owners = useMemo(() => {
+    const list: number[] = [];
+    buildings.forEach((b, index) => b.tiers.forEach(() => list.push(index)));
+    return Int32Array.from(list);
+  }, [buildings]);
 
   const geometry = useMemo(() => {
     const box = new THREE.BoxGeometry(1, 1, 1);
     box.translate(0, 0.5, 0); // Base at y=0, so scaling grows upward.
+    const style = new Float32Array(owners.length * 3);
+    owners.forEach((owner, index) => {
+      const b = buildings[owner];
+      style[index * 3] = FILE_CATEGORIES.indexOf(b.category);
+      style[index * 3 + 1] = b.seed;
+      style[index * 3 + 2] = b.landmark ? 1 : 0;
+    });
+    box.setAttribute("aStyle", new THREE.InstancedBufferAttribute(style, 3));
     return box;
-  }, []);
-  const material = useMemo(
-    () => createBuildingMaterial(fog.color, fog.near, fog.far),
-    [fog.color, fog.near, fog.far],
-  );
+  }, [buildings, owners]);
+
+  const material = useMemo(() => createBuildingMaterial(radius), [radius]);
 
   useLayoutEffect(() => {
     const target = mesh.current;
     if (!target) return;
     const matrix = new THREE.Matrix4();
-    buildings.forEach((b, index) => {
-      matrix.makeScale(b.width, b.height, b.depth);
-      matrix.setPosition(b.x, 0, b.z);
-      target.setMatrixAt(index, matrix);
-    });
+    let index = 0;
+    for (const b of buildings) {
+      for (const tier of b.tiers) {
+        matrix.makeScale(tier.width, tier.height, tier.depth);
+        matrix.setPosition(b.x, b.baseY + tier.y, b.z);
+        target.setMatrixAt(index++, matrix);
+      }
+    }
     target.instanceMatrix.needsUpdate = true;
     target.computeBoundingSphere();
     target.computeBoundingBox();
@@ -52,14 +97,15 @@ export function Buildings({ buildings, focus, emphasized, fog, onHover, onSelect
     const target = mesh.current;
     if (!target) return;
     const color = new THREE.Color();
-    buildings.forEach((b, index) => {
-      const intensity = emphasized.has(b.id) ? HIGHLIGHT : focus && !focus.has(b.id) ? DIMMED : 1;
-      target.setColorAt(index, color.set(b.color).multiplyScalar(intensity));
+    owners.forEach((owner, index) => {
+      const b = buildings[owner];
+      target.setColorAt(index, applyHighlightColor(color, b.color, highlight.stateOf(b.id)));
     });
     if (target.instanceColor) target.instanceColor.needsUpdate = true;
-  }, [buildings, focus, emphasized]);
+    invalidate();
+  }, [buildings, owners, highlight, invalidate]);
 
-  useLayoutEffect(
+  useEffect(
     () => () => {
       geometry.dispose();
       material.dispose();
@@ -67,13 +113,18 @@ export function Buildings({ buildings, focus, emphasized, fog, onHover, onSelect
     [geometry, material],
   );
 
-  const idAt = (event: ThreeEvent<PointerEvent | MouseEvent>) =>
-    event.instanceId === undefined ? null : (buildings[event.instanceId]?.id ?? null);
+  const idAt = (event: ThreeEvent<PointerEvent | MouseEvent>) => {
+    if (event.instanceId === undefined) return null;
+    return buildings[owners[event.instanceId]]?.id ?? null;
+  };
+
+  if (owners.length === 0) return null;
 
   return (
     <instancedMesh
+      key={owners.length}
       ref={mesh}
-      args={[geometry, material, buildings.length]}
+      args={[geometry, material, owners.length]}
       onPointerMove={(event) => {
         event.stopPropagation();
         onHover?.(idAt(event));
@@ -87,4 +138,4 @@ export function Buildings({ buildings, focus, emphasized, fog, onHover, onSelect
       }}
     />
   );
-}
+});
