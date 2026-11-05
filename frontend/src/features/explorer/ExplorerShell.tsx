@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, type ReactNode } from "react";
 import { Logo } from "@/components/Logo";
 import { LazyCityCanvas } from "@/features/city/LazyCityCanvas";
 import { generateCity } from "@/lib/city/layout";
-import { buildAdjacency } from "@/lib/graph/queries";
+import { buildAdjacency, type Adjacency } from "@/lib/graph/queries";
 import type { CodeGraph } from "@/lib/graph/schema";
 import { ApiStatus } from "./ApiStatus";
 import { CanvasToolbar } from "./CanvasToolbar";
@@ -24,19 +24,23 @@ const WEBGL_FALLBACK = (
   </div>
 );
 
-export function ExplorerShell({ graph }: { graph: CodeGraph }) {
+interface ExplorerShellProps {
+  graph: CodeGraph;
+  /** Extra header content, such as the demo dataset switcher. */
+  headerSlot?: ReactNode;
+}
+
+/**
+ * Subscribes to no selection state itself. The canvas, list and inspector each subscribe to what
+ * they need, so a hover doesn't re-render the whole page.
+ */
+export function ExplorerShell({ graph, headerSlot }: ExplorerShellProps) {
   const city = useMemo(() => generateCity(graph), [graph]);
   const adjacency = useMemo(() => buildAdjacency(graph), [graph]);
-
-  const selectedId = useExplorerStore((s) => s.selectedId);
-  const hoveredId = useExplorerStore((s) => s.hoveredId);
-  const showConnections = useExplorerStore((s) => s.showConnections);
-  const cameraResetCount = useExplorerStore((s) => s.cameraResetCount);
-  const select = useExplorerStore((s) => s.select);
-  const hover = useExplorerStore((s) => s.hover);
   const reset = useExplorerStore((s) => s.reset);
 
   useEffect(() => reset, [reset]);
+  useKeyboardShortcuts();
 
   return (
     <div className="flex min-h-svh flex-col bg-void lg:h-svh lg:overflow-hidden">
@@ -45,6 +49,7 @@ export function ExplorerShell({ graph }: { graph: CodeGraph }) {
           <Logo />
           <span aria-hidden="true" className="h-4 w-px bg-line" />
           <span className="truncate font-mono text-xs text-muted">{graph.provenance.repository}</span>
+          {headerSlot}
         </div>
         <ApiStatus />
       </header>
@@ -53,20 +58,8 @@ export function ExplorerShell({ graph }: { graph: CodeGraph }) {
 
       <div className="flex flex-1 flex-col lg:grid lg:min-h-0 lg:grid-cols-[17rem_minmax(0,1fr)_20rem]">
         <main className="relative order-1 h-[58svh] shrink-0 lg:order-2 lg:h-auto">
-          <LazyCityCanvas
-            graph={graph}
-            city={city}
-            fallback={WEBGL_FALLBACK}
-            selection={{
-              selectedId,
-              hoveredId,
-              showConnections,
-              cameraResetCount,
-              onHover: hover,
-              onSelect: select,
-            }}
-          />
-          <CanvasToolbar />
+          <LazyCityCanvas graph={graph} city={city} mode="explorer" fallback={WEBGL_FALLBACK} />
+          <CanvasToolbar omittedFileCount={city.omittedFileCount} />
         </main>
 
         <aside
@@ -83,6 +76,40 @@ export function ExplorerShell({ graph }: { graph: CodeGraph }) {
           <Inspector graph={graph} city={city} adjacency={adjacency} />
         </aside>
       </div>
+
+      <SelectionAnnouncer adjacency={adjacency} />
     </div>
   );
+}
+
+/** Tells screen reader users what a selection did, since the city itself can't. */
+function SelectionAnnouncer({ adjacency }: { adjacency: Adjacency }) {
+  const selectedId = useExplorerStore((s) => s.selectedId);
+  const message = selectedId
+    ? `Selected ${selectedId}. Imports ${adjacency.imports.get(selectedId)?.length ?? 0} files. Imported by ${adjacency.importedBy.get(selectedId)?.length ?? 0} files.`
+    : "";
+  return (
+    <p aria-live="polite" className="sr-only">
+      {message}
+    </p>
+  );
+}
+
+function useKeyboardShortcuts() {
+  const select = useExplorerStore((s) => s.select);
+  const fitCamera = useExplorerStore((s) => s.fitCamera);
+  const resetCamera = useExplorerStore((s) => s.resetCamera);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("input, textarea, select, [contenteditable]")) return;
+      if (event.key === "Escape") select(null);
+      else if (event.key === "f") fitCamera();
+      else if (event.key === "r") resetCamera();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [select, fitCamera, resetCamera]);
 }
