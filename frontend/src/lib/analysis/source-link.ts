@@ -21,3 +21,17 @@ export function sourceUrl(graph: CodeGraph, fileId: string): string | null {
   const { owner, name } = parsed.repo;
   return `https://github.com/${owner}/${name}/blob/${repository.commitSha}/${path}`;
 }
+
+/** The same link, pointing at a range of lines. Only for lines the analysis itself reported. */
+export function sourceLineUrl(
+  graph: CodeGraph,
+  fileId: string,
+  start: number,
+  end: number = start,
+): string | null {
+  const url = sourceUrl(graph, fileId);
+  if (!url || !Number.isInteger(start) || !Number.isInteger(end) || start < 1 || end < start) {
+    return null;
+  }
+  return `${url}#L${start}${end > start ? `-L${end}` : ""}`;
+}
