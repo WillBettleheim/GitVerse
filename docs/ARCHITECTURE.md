@@ -106,7 +106,8 @@ Three.js dependency, and its tests check the results against a real Three.js cam
 ```
 frontend/src/
   app/                 Routes: / (landing), /explore/demo, /explore/demo/stress/[size]
-  lib/graph/           CodeGraph schema, adjacency, file categories, importance
+  lib/graph/           CodeGraph schema, adjacency, file categories, importance, traversal and
+                       cycles (Tarjan), search, insights, dependency graph layout
   lib/city/            Pure logic: layout, camera, highlight, arcs, quality. No React or WebGL
   features/city/       React Three Fiber scene
   features/explorer/   Explorer shell, panels, Zustand store
@@ -114,6 +115,11 @@ frontend/src/
   features/landing/    Landing page sections
   lib/config.ts        Validated public environment config
 ```
+
+Graph-derived data is computed once per graph (cycles, insights, filter options) or once per
+selection, depth and direction (traversal), and shared through `ExplorerDataProvider` and memoized
+hooks. Nothing graph-wide is recomputed on hover or while the camera moves. Selection lives in one
+store, so the city, file list, inspector, breadcrumbs and graph view always agree.
 
 The 3D scene is loaded client-only. The explorer knows nothing about sample data: demo pages pass
 it a graph and a dataset switcher, as a real analysis page will pass it a real graph.

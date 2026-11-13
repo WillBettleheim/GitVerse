@@ -58,6 +58,15 @@ Demo mode doesn't need the backend. To run only the frontend, use `make dev-fron
   - Trace imports (cyan) and importers (violet), with arrowheads and pulses showing direction
   - Fit to city (`F`), reset view (`R`), clear selection (`Esc`), and an optional cinematic overview
   - Respects reduced motion, and adapts quality to the device
+- **Architecture tools** in the explorer:
+  - File inspector: path breadcrumbs, language, lines, functions, classes, exports, complexity,
+    imports and importers, cycle membership, and a GitHub link pinned to the analyzed commit
+  - Dependency mode: imports, importers or both, 1 to 3 hops or everything reachable, with cycle
+    members marked; shown in the city, as a list, or as a left-to-right graph
+  - Search by name or path, filtered by folder, language, lines, complexity and importer count,
+    with matches lit in the city
+  - Insights: files, edges, cycles, most depended-upon files, largest modules, complexity hotspots
+    and how code is spread across folders, all counted from the graph
 - **Stress-test cities** with generated data, at `/explore/demo/stress/100`, `/500` and `/1000`
 - **Deterministic city layout**: the same graph always builds the same city, whatever the input order
 - **Real repository analysis**: paste a public GitHub URL on the landing page. The backend fetches
