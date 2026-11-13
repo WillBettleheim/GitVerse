@@ -1,0 +1,8 @@
+{
+  // Comments and trailing commas are allowed in tsconfig.
+  "compilerOptions": {
+    "baseUrl": ".",
+    /* Alias used by app.tsx */
+    "paths": { "@/*": ["src/*"], },
+  },
+}
