@@ -55,6 +55,8 @@ class FileNode(_Strict):
     # File-level cyclomatic complexity.
     complexity: int = Field(ge=0)
     metrics: FileMetrics | None = None
+    # The git blob SHA: identical exactly when the file's content is identical.
+    blob: str | None = Field(default=None, pattern=r"^[0-9a-f]{40}$")
 
     @field_validator("path")
     @classmethod
@@ -81,6 +83,10 @@ class RepositoryInfo(_Strict):
     description: str | None = None
     default_branch: str
     commit_sha: str = Field(pattern=r"^[0-9a-f]{40}$")
+    committed_at: str | None = None
+    # First line of the commit message, as written. GitVerse never interprets it.
+    commit_message: str | None = Field(default=None, max_length=300)
+    commit_author: str | None = Field(default=None, max_length=100)
     stars: int = Field(ge=0)
     forks: int = Field(ge=0)
     primary_language: str | None = None
