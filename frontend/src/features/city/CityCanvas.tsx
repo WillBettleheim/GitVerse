@@ -3,6 +3,12 @@
 import { memo, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { useExplorerStore } from "@/features/explorer/store";
+import {
+  activeEdges,
+  useCycles,
+  useSearchResults,
+  useSelectionReach,
+} from "@/features/explorer/use-explorer-data";
 import { ambientOpacity, selectAmbientConnections } from "@/lib/city/arcs";
 import { cameraDistance } from "@/lib/city/camera";
 import { computeHighlight } from "@/lib/city/highlight";
@@ -60,6 +66,8 @@ export default function CityCanvas({ graph, city, mode, fallback }: CityCanvasPr
   const hoveredId = useExplorerStore((s) => (interactive ? s.hoveredId : null));
   const showConnections = useExplorerStore((s) => !interactive || s.showConnections);
   const cinematicWanted = useExplorerStore((s) => interactive && s.cinematic);
+  // The dependency graph view covers the city entirely, so the city needn't draw anything.
+  const covered = useExplorerStore((s) => interactive && s.mainView === "graph");
   const command = useExplorerStore((s) => s.cameraCommand);
   const select = useExplorerStore((s) => s.select);
   const hover = useExplorerStore((s) => s.hover);
@@ -72,9 +80,22 @@ export default function CityCanvas({ graph, city, mode, fallback }: CityCanvasPr
   const [antialias] = useState(preset.antialias);
 
   const adjacency = useMemo(() => buildAdjacency(graph), [graph]);
+  const cycles = useCycles(graph);
+  const search = useSearchResults(graph.files, adjacency);
+  const selection = useSelectionReach(adjacency, cycles, selectedId);
+  const matches = interactive ? search.matches : null;
   const highlight = useMemo(
-    () => computeHighlight(adjacency, selectedId, hoveredId),
-    [adjacency, selectedId, hoveredId],
+    () =>
+      computeHighlight(adjacency, selectedId, hoveredId, {
+        reach: selection.reach,
+        cycle: selection.cycle,
+        matches,
+      }),
+    [adjacency, selectedId, hoveredId, selection, matches],
+  );
+  const active = useMemo(
+    () => activeEdges(city, selection, hoveredId),
+    [city, selection, hoveredId],
   );
 
   const byId = useMemo(() => new Map(city.buildings.map((b) => [b.id, b])), [city.buildings]);
@@ -131,10 +152,10 @@ export default function CityCanvas({ graph, city, mode, fallback }: CityCanvasPr
   const cinematic = cinematicWanted && !reducedMotion;
   const pulsing = Boolean(highlight.activeId) && showConnections && !reducedMotion;
   const animated = interactive ? cinematic || pulsing : !reducedMotion;
-  const frameloop = !visible ? "never" : animated ? "always" : "demand";
+  const frameloop = !visible || covered ? "never" : animated ? "always" : "demand";
 
   const distance = useMemo(() => cameraDistance(city.bounds), [city.bounds]);
-  const dimmed = highlight.activeId !== null;
+  const dimmed = highlight.activeId !== null || matches !== null;
   // Bigger cities are viewed from further out, so beacons need more height to stay visible.
   const accentScale = Math.max(1, city.bounds.radius / ACCENT_REFERENCE_RADIUS);
 
@@ -149,7 +170,12 @@ export default function CityCanvas({ graph, city, mode, fallback }: CityCanvasPr
           orthographic
           dpr={preset.dpr}
           frameloop={frameloop}
-          camera={{ position: [distance, distance, distance], zoom: 1, near: 0.1, far: distance * 4 }}
+          camera={{
+            position: [distance, distance, distance],
+            zoom: 1,
+            near: 0.1,
+            far: distance * 4,
+          }}
           gl={{ antialias, powerPreference: "high-performance" }}
           onPointerMissed={() => {
             if (interactive) select(null);
@@ -182,9 +208,8 @@ export default function CityCanvas({ graph, city, mode, fallback }: CityCanvasPr
             <Connections
               buildings={city.buildings}
               ambient={ambient}
-              all={city.connections}
               ambientOpacity={ambientOpacity(ambient.length)}
-              activeId={highlight.activeId}
+              active={active}
               segments={preset.arcSegments}
               animate={!reducedMotion}
             />
