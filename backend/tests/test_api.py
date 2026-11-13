@@ -28,7 +28,7 @@ class FakePipeline(Pipeline):
         self.identified = 0
         self.analyzed = 0
 
-    async def identify(self, ref: RepoRef) -> RepositoryInfo:
+    async def identify(self, ref: RepoRef, commit: str | None = None) -> RepositoryInfo:
         self.identified += 1
         if isinstance(self.fail, AnalysisError) and self.fail.code == "repository_not_found":
             raise self.fail
@@ -38,7 +38,7 @@ class FakePipeline(Pipeline):
             full_name=ref.full_name,
             url=f"https://github.com/{ref.full_name}",
             default_branch="main",
-            commit_sha=SHA,
+            commit_sha=commit or SHA,
             stars=1,
             forks=0,
             archived=False,

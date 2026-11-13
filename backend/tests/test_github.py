@@ -128,29 +128,118 @@ def test_reports_network_failures_and_timeouts_safely() -> None:
         assert "boom" not in error.value.message
 
 
+def commit_json(sha: str = SHA, message: str = "Fix the thing\n\nLonger body") -> dict[str, Any]:
+    return {
+        "sha": sha,
+        "commit": {
+            "message": message,
+            "author": {"name": "Ada", "date": "2024-05-01T09:00:00Z"},
+            "committer": {"name": "Ada", "date": "2024-05-02T09:00:00Z"},
+        },
+        "parents": [{"sha": "f" * 40}],
+    }
+
+
 def test_resolves_the_default_branch_to_a_commit() -> None:
     meta = metadata()
 
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.path == "/repos/Acme/Web-App/commits/main"
-        assert request.headers["accept"] == "application/vnd.github.sha"
-        return httpx.Response(200, text=SHA)
+        return httpx.Response(200, json=commit_json())
 
-    assert run(handler, lambda c: c.resolve_commit(meta)) == SHA
+    commit = run(handler, lambda c: c.get_commit(meta))
+    assert commit.sha == SHA
+    assert commit.summary == "Fix the thing"
+    assert (commit.author, commit.committed_at) == ("Ada", "2024-05-02T09:00:00Z")
+    assert commit.parents == ("f" * 40,)
 
 
-@pytest.mark.parametrize("body", ["not-a-sha", "0123", f"{SHA}\n<script>"])
-def test_rejects_anything_but_a_commit_sha(body: str) -> None:
+def test_fetches_a_specific_commit() -> None:
+    meta = metadata()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == f"/repos/Acme/Web-App/commits/{SHA}"
+        return httpx.Response(200, json=commit_json())
+
+    assert run(handler, lambda c: c.get_commit(meta, SHA)).sha == SHA
+
+
+@pytest.mark.parametrize("ref", ["../x", "main/../../etc", "a b", "x" * 300, "abc;rm"])
+def test_refuses_unsafe_commit_references(ref: str) -> None:
+    meta = metadata()
+    with pytest.raises(AnalysisError) as error:
+        run(lambda _: httpx.Response(200, json=commit_json()), lambda c: c.get_commit(meta, ref))
+    assert error.value.code == "invalid_repository"
+
+
+@pytest.mark.parametrize(
+    "body", [{"sha": "not-a-sha", "commit": {}}, {"sha": SHA}, [], {"sha": f"{SHA}\n"}]
+)
+def test_rejects_anything_but_a_well_formed_commit(body: object) -> None:
     meta = metadata()
     with pytest.raises(AnalysisError):
-        run(lambda _: httpx.Response(200, text=body), lambda c: c.resolve_commit(meta))
+        run(lambda _: httpx.Response(200, json=body), lambda c: c.get_commit(meta))
 
 
 def test_an_empty_repository_has_nothing_to_analyze() -> None:
     meta = metadata()
     with pytest.raises(AnalysisError) as error:
-        run(lambda _: httpx.Response(409), lambda c: c.resolve_commit(meta))
+        run(lambda _: httpx.Response(409), lambda c: c.get_commit(meta))
     assert error.value.code == "repository_empty"
+
+
+def test_lists_a_bounded_page_of_history() -> None:
+    meta = metadata()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/repos/Acme/Web-App/commits"
+        assert dict(request.url.params) == {"sha": "main", "per_page": "30", "page": "2"}
+        body = [commit_json(), {"sha": "bad"}, commit_json("e" * 40, "Second")]
+        return httpx.Response(200, json=body, headers={"link": '<x?page=3>; rel="next"'})
+
+    commits, has_more = run(handler, lambda c: c.list_commits(meta, 2))
+    assert [c.sha for c in commits] == [SHA, "e" * 40]
+    assert has_more is True
+
+
+def test_knows_when_history_ends() -> None:
+    meta = metadata()
+    commits, has_more = run(
+        lambda _: httpx.Response(200, json=[commit_json()]), lambda c: c.list_commits(meta, 1)
+    )
+    assert len(commits) == 1
+    assert has_more is False
+
+
+def test_reads_renames_from_githubs_comparison() -> None:
+    other = "e" * 40
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == f"/repos/acme/web-app/compare/{SHA}...{other}"
+        files = [
+            {"status": "renamed", "filename": "src/new.ts", "previous_filename": "src/old.ts"},
+            {"status": "modified", "filename": "src/b.ts"},
+            {"status": "added", "filename": "src/c.ts"},
+        ]
+        return httpx.Response(200, json={"files": files})
+
+    result = run(handler, lambda c: c.compare("acme/web-app", SHA, other))
+    assert result.renames == {"src/old.ts": "src/new.ts"}
+    assert result.truncated is False
+
+
+def test_knows_when_githubs_file_list_was_cut_off() -> None:
+    files = [{"status": "modified", "filename": f"f{i}.ts"} for i in range(300)]
+    result = run(
+        lambda _: httpx.Response(200, json={"files": files}),
+        lambda c: c.compare("acme/web-app", SHA, "e" * 40),
+    )
+    assert result.truncated is True
+
+
+def test_compares_only_full_commit_ids() -> None:
+    with pytest.raises(AnalysisError):
+        run(lambda _: httpx.Response(200, json={}), lambda c: c.compare("a/b", "main", SHA))
 
 
 def test_downloads_the_archive_for_exactly_that_commit() -> None:
