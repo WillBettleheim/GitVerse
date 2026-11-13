@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "GitVerse analysis API"
 requires-python = ">=3.12,<3.14"
 dependencies = [
+    "anthropic>=2.8,<3",
     "fastapi>=0.162,<1",
     "httpx>=0.28,<1",
     "networkx>=3.5,<4",
