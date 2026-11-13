@@ -108,7 +108,10 @@ export const codeGraphSchema = z
   })
   .superRefine((graph, ctx) => {
     if (graph.analysis && graph.provenance.kind !== "analysis") {
-      ctx.addIssue({ code: "custom", message: "only analysis output may carry an analysis summary" });
+      ctx.addIssue({
+        code: "custom",
+        message: "only analysis output may carry an analysis summary",
+      });
     }
     const ids = new Set<string>();
     for (const file of graph.files) {

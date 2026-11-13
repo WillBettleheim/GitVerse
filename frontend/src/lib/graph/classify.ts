@@ -12,7 +12,11 @@ const TEST_PATTERNS = [
   /(^|\/)test_[^/]+\.py$/,
   /_test\.(py|go)$/,
 ];
-const DOCS_PATTERNS = [/\.(md|mdx|rst|adoc|txt)$/, /(^|\/)docs?\//, /(^|\/)(LICENSE|CHANGELOG)[^/]*$/];
+const DOCS_PATTERNS = [
+  /\.(md|mdx|rst|adoc|txt)$/,
+  /(^|\/)docs?\//,
+  /(^|\/)(LICENSE|CHANGELOG)[^/]*$/,
+];
 const STYLE_PATTERN = /\.(css|scss|sass|less|styl)$/;
 const CONFIG_PATTERNS = [
   /(^|\/)(package(-lock)?\.json|tsconfig[^/]*\.json|pnpm-lock\.yaml|yarn\.lock|poetry\.lock)$/,
