@@ -31,6 +31,8 @@ import { Districts } from "./Districts";
 import { LabelProjector, type LabelAnchor } from "./LabelProjector";
 import { Platform } from "./Platform";
 import { useReducedMotion } from "./use-reduced-motion";
+import { TransitionLayer } from "@/features/timetravel/TransitionLayer";
+import { useCityTransition } from "@/features/timetravel/use-city-transition";
 
 const BACKGROUND = "#05070f";
 const HERO_CONNECTION_LIMIT = 150;
@@ -84,19 +86,28 @@ export default function CityCanvas({ graph, city, mode, fallback }: CityCanvasPr
   const search = useSearchResults(graph.files, adjacency);
   const selection = useSelectionReach(adjacency, cycles, selectedId);
   const matches = interactive ? search.matches : null;
+  const transition = useCityTransition(city, interactive, reducedMotion);
+  const changeKinds = transition.shown?.changes.kinds ?? null;
   const highlight = useMemo(
     () =>
       computeHighlight(adjacency, selectedId, hoveredId, {
         reach: selection.reach,
         cycle: selection.cycle,
         matches,
+        changes: changeKinds,
       }),
-    [adjacency, selectedId, hoveredId, selection, matches],
+    [adjacency, selectedId, hoveredId, selection, matches, changeKinds],
   );
-  const active = useMemo(
-    () => activeEdges(city, selection, hoveredId),
-    [city, selection, hoveredId],
-  );
+  const addedEdges = transition.shown?.addedEdges;
+  const active = useMemo(() => {
+    const edges = activeEdges(city, selection, hoveredId);
+    if (edges.length > 0 || !addedEdges || matches) return edges;
+    // Time travel with nothing selected: light up the dependencies this step introduced.
+    const present = new Set(city.buildings.map((b) => b.id));
+    return addedEdges
+      .filter((e) => present.has(e.source) && present.has(e.target))
+      .map((e) => ({ ...e, role: "added" as const }));
+  }, [city, selection, hoveredId, addedEdges, matches]);
 
   const byId = useMemo(() => new Map(city.buildings.map((b) => [b.id, b])), [city.buildings]);
   const selected = selectedId ? (byId.get(selectedId) ?? null) : null;
@@ -151,7 +162,9 @@ export default function CityCanvas({ graph, city, mode, fallback }: CityCanvasPr
 
   const cinematic = cinematicWanted && !reducedMotion;
   const pulsing = Boolean(highlight.activeId) && showConnections && !reducedMotion;
-  const animated = interactive ? cinematic || pulsing : !reducedMotion;
+  const animated = interactive
+    ? cinematic || pulsing || transition.active !== null
+    : !reducedMotion;
   const frameloop = !visible || covered ? "never" : animated ? "always" : "demand";
 
   const distance = useMemo(() => cameraDistance(city.bounds), [city.bounds]);
@@ -190,21 +203,37 @@ export default function CityCanvas({ graph, city, mode, fallback }: CityCanvasPr
         >
           <color attach="background" args={[BACKGROUND]} />
           <Platform bounds={city.bounds} />
-          <Districts
-            districts={city.districts}
-            activeDistrictId={activeBuilding?.districtId ?? null}
-            dimmed={dimmed}
-          />
-          {preset.groundGlow && <GroundGlow buildings={city.buildings} dimmed={dimmed} />}
-          <Buildings
-            buildings={city.buildings}
-            highlight={highlight}
-            radius={city.bounds.radius}
-            onHover={interactive ? hover : undefined}
-            onSelect={interactive ? select : undefined}
-          />
-          <Beacons buildings={city.buildings} highlight={highlight} scale={accentScale} />
-          {showConnections && (
+          {transition.active ? (
+            <TransitionLayer
+              key={transition.active.id}
+              plan={transition.active.plan}
+              from={transition.active.from}
+              to={transition.active.to}
+              removedEdges={transition.active.removedEdges}
+              addedEdges={transition.active.addedEdges}
+              durationMs={transition.active.durationMs}
+              radius={city.bounds.radius}
+              onDone={transition.finish}
+            />
+          ) : (
+            <>
+              <Districts
+                districts={city.districts}
+                activeDistrictId={activeBuilding?.districtId ?? null}
+                dimmed={dimmed}
+              />
+              {preset.groundGlow && <GroundGlow buildings={city.buildings} dimmed={dimmed} />}
+              <Buildings
+                buildings={city.buildings}
+                highlight={highlight}
+                radius={city.bounds.radius}
+                onHover={interactive ? hover : undefined}
+                onSelect={interactive ? select : undefined}
+              />
+              <Beacons buildings={city.buildings} highlight={highlight} scale={accentScale} />
+            </>
+          )}
+          {showConnections && !transition.active && (
             <Connections
               buildings={city.buildings}
               ambient={ambient}

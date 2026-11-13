@@ -87,12 +87,20 @@ export function ExplorerRig({
   /** Once the user has placed the view, resizing shouldn't take it away from them. */
   const userMoved = useRef(false);
 
+  // A new layout (another snapshot, a resize) re-frames the city from the current angle, so
+  // time travel keeps the orientation the user chose. Without a user camera move, it stays home.
   useEffect(() => {
-    if (!userMoved.current) {
+    const orbit = controls.current;
+    if (!orbit) {
       jump.current = home;
-      invalidate();
+    } else if (!userMoved.current) {
+      const current = readPose(get().camera, orbit);
+      jump.current = fitPose(bounds, viewport, current.azimuth, current.elevation);
+    } else {
+      return;
     }
-  }, [home, invalidate]);
+    invalidate();
+  }, [home, bounds, viewport, get, invalidate]);
 
   useEffect(() => {
     if (!selected || !controls.current) return;
