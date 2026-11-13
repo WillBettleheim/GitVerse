@@ -6,7 +6,7 @@ request anywhere else.
 """
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from tempfile import SpooledTemporaryFile
 from typing import IO, Any
 
@@ -18,6 +18,11 @@ from app.services.repo_ref import InvalidRepoRef, RepoRef, parse_repo_ref
 API_BASE = "https://api.github.com"
 ARCHIVE_BASE = "https://codeload.github.com"
 _SHA = re.compile(r"[0-9a-f]{40}")
+# Branch names come from GitHub, but are still checked before going into a URL path.
+_BRANCH = re.compile(r"[A-Za-z0-9._/-]{1,250}")
+MAX_COMMITS_PER_PAGE = 30
+# GitHub lists at most this many files in a comparison. Beyond it, the list is incomplete.
+COMPARE_FILE_LIMIT = 300
 _CHUNK = 64 * 1024
 # Archives spill from memory to an anonymous temporary file above this size.
 _SPOOL_BYTES = 8 * 1024 * 1024
@@ -37,6 +42,27 @@ class RepositoryMetadata:
     license: str | None
     size_kb: int
     archived: bool
+
+
+@dataclass(frozen=True)
+class CommitInfo:
+    sha: str
+    message: str
+    author: str | None
+    committed_at: str | None
+    parents: tuple[str, ...]
+
+    @property
+    def summary(self) -> str:
+        return self.message.split("\n", 1)[0][:300]
+
+
+@dataclass(frozen=True)
+class CompareResult:
+    # Old path to new path, as GitHub's own rename detection reported them.
+    renames: dict[str, str] = field(default_factory=dict)
+    # GitHub stops listing files past COMPARE_FILE_LIMIT, so renames beyond it are unknown.
+    truncated: bool = False
 
 
 class GitHubClient:
@@ -78,18 +104,56 @@ class GitHubClient:
             archived=bool(data.get("archived")),
         )
 
-    async def resolve_commit(self, metadata: RepositoryMetadata) -> str:
-        """The SHA the default branch points at now, which pins everything after it."""
-        if not metadata.default_branch:
-            raise AnalysisError("repository_empty", "This repository has no commits to analyze.")
+    async def get_commit(self, metadata: RepositoryMetadata, ref: str | None = None) -> CommitInfo:
+        """A commit by SHA, or the default branch's current commit, which pins everything after."""
+        if ref is None:
+            if not metadata.default_branch:
+                raise AnalysisError(
+                    "repository_empty", "This repository has no commits to analyze."
+                )
+            ref = metadata.default_branch
+        if not (_SHA.fullmatch(ref) or (_BRANCH.fullmatch(ref) and ".." not in ref)):
+            raise AnalysisError("invalid_repository", "That isn't a valid commit or branch.")
+        response = await self._get(f"{API_BASE}/repos/{metadata.full_name}/commits/{ref}")
+        commit = _parse_commit(response.json())
+        if commit is None:
+            raise AnalysisError("github_unavailable", "GitHub returned an unexpected commit.")
+        return commit
+
+    async def list_commits(
+        self, metadata: RepositoryMetadata, page: int
+    ) -> tuple[list[CommitInfo], bool]:
+        """One page of the default branch's history, newest first. Returns whether more exist."""
+        if not metadata.default_branch or not _BRANCH.fullmatch(metadata.default_branch):
+            raise AnalysisError("repository_empty", "This repository has no history to show.")
         response = await self._get(
-            f"{API_BASE}/repos/{metadata.full_name}/commits/{metadata.default_branch}",
-            accept="application/vnd.github.sha",
+            f"{API_BASE}/repos/{metadata.full_name}/commits",
+            params={
+                "sha": metadata.default_branch,
+                "per_page": str(MAX_COMMITS_PER_PAGE),
+                "page": str(page),
+            },
         )
-        sha = response.text.strip()
-        if not _SHA.fullmatch(sha):
-            raise AnalysisError("github_unavailable", "GitHub returned an unexpected commit ID.")
-        return sha
+        data = response.json()
+        items = data if isinstance(data, list) else []
+        commits = [c for c in (_parse_commit(item) for item in items) if c is not None]
+        has_more = 'rel="next"' in response.headers.get("link", "")
+        return commits, has_more
+
+    async def compare(self, full_name: str, base: str, head: str) -> CompareResult:
+        """File renames between two commits, from GitHub's own diff."""
+        if not (_SHA.fullmatch(base) and _SHA.fullmatch(head)):
+            raise AnalysisError("invalid_repository", "Invalid commit ID.")
+        response = await self._get(f"{API_BASE}/repos/{full_name}/compare/{base}...{head}")
+        files = response.json().get("files") or []
+        renames: dict[str, str] = {}
+        for item in files:
+            if not isinstance(item, dict) or item.get("status") != "renamed":
+                continue
+            old, new = item.get("previous_filename"), item.get("filename")
+            if isinstance(old, str) and isinstance(new, str):
+                renames[old] = new
+        return CompareResult(renames=renames, truncated=len(files) >= COMPARE_FILE_LIMIT)
 
     async def download_archive(
         self, metadata: RepositoryMetadata, sha: str, max_bytes: int
@@ -119,12 +183,14 @@ class GitHubClient:
         buffer.seek(0)
         return buffer
 
-    async def _get(self, url: str, accept: str | None = None) -> httpx.Response:
+    async def _get(
+        self, url: str, accept: str | None = None, params: dict[str, str] | None = None
+    ) -> httpx.Response:
         headers = dict(self._headers)
         if accept:
             headers["Accept"] = accept
         try:
-            response = await self._http.get(url, headers=headers)
+            response = await self._http.get(url, headers=headers, params=params)
         except httpx.TimeoutException as exc:
             raise AnalysisError("github_unavailable", "GitHub took too long to respond.") from exc
         except httpx.HTTPError as exc:
@@ -160,6 +226,34 @@ class GitHubClient:
         if status in (401, 403, 451):
             raise AnalysisError("repository_private", "GitHub refused access to this repository.")
         raise AnalysisError("github_unavailable", f"GitHub returned an error ({status}).")
+
+
+def _parse_commit(data: object) -> CommitInfo | None:
+    if not isinstance(data, dict):
+        return None
+    sha = data.get("sha")
+    commit = data.get("commit")
+    if not isinstance(sha, str) or not _SHA.fullmatch(sha) or not isinstance(commit, dict):
+        return None
+    author = _mapping(commit.get("author"))
+    committer = _mapping(commit.get("committer"))
+    raw_parents = data.get("parents")
+    parents: list[object] = raw_parents if isinstance(raw_parents, list) else []
+    return CommitInfo(
+        sha=sha,
+        message=str(commit.get("message") or "")[:2000],
+        author=_text(author.get("name"), 100),
+        committed_at=_text(committer.get("date") or author.get("date"), 40),
+        parents=tuple(
+            str(p["sha"])
+            for p in parents
+            if isinstance(p, dict) and _SHA.fullmatch(str(p.get("sha")))
+        ),
+    )
+
+
+def _mapping(value: object) -> dict[str, object]:
+    return value if isinstance(value, dict) else {}
 
 
 def _too_large(max_bytes: int) -> AnalysisError:
