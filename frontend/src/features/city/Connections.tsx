@@ -10,10 +10,12 @@ import type { Building, Connection } from "@/lib/city/layout";
 const OUTGOING = new THREE.Color("#22d3ee");
 const INCOMING = new THREE.Color("#a78bfa");
 const CYCLE = new THREE.Color("#fbbf24");
+const ADDED = new THREE.Color("#34d399");
 const ROLE_COLORS: Record<EdgeRole, THREE.Color> = {
   import: OUTGOING,
   importer: INCOMING,
   cycle: CYCLE,
+  added: ADDED,
 };
 const colorForRole = (edge: Connection) => ROLE_COLORS[(edge as RoleEdge).role] ?? OUTGOING;
 const ARROW_T = 0.86;

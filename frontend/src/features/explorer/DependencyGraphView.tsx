@@ -18,6 +18,7 @@ const EDGE_COLORS: Record<EdgeRole, string> = {
   import: "#22d3ee",
   importer: "#a78bfa",
   cycle: "#fbbf24",
+  added: "#34d399",
 };
 
 function columnLabel(depth: number): string {

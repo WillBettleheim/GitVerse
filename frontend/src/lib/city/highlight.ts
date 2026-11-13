@@ -1,4 +1,5 @@
 import type { Reach } from "@/lib/graph/dependencies";
+import type { ChangeKind } from "@/lib/timetravel/transition";
 import type { Adjacency } from "@/lib/graph/queries";
 
 export type HighlightState =
@@ -17,7 +18,11 @@ export type HighlightState =
   /** In the same import cycle as the selected file. */
   | "cycle"
   /** Matches the current search, with nothing selected. */
-  | "match";
+  | "match"
+  /** Time travel: what happened to this file since the previous snapshot. */
+  | "added"
+  | "modified"
+  | "renamed";
 
 export interface Highlight {
   /** The file whose relationships are shown: the selection, or else whatever is hovered. */
@@ -32,6 +37,8 @@ export interface HighlightContext {
   cycle?: ReadonlySet<string> | null;
   /** Search results. When set and nothing is selected, everything else dims. */
   matches?: ReadonlySet<string> | null;
+  /** Time travel changes. Shown when nothing is selected, hovered or searched. */
+  changes?: ReadonlyMap<string, ChangeKind> | null;
 }
 
 export function computeHighlight(
@@ -43,6 +50,16 @@ export function computeHighlight(
   const activeId = selectedId ?? hoveredId;
   if (!activeId) {
     const matches = context.matches;
+    const changes = context.changes;
+    if (!matches && changes) {
+      return {
+        activeId: null,
+        stateOf: (id) => {
+          const kind = changes.get(id);
+          return kind === "added" || kind === "modified" || kind === "renamed" ? kind : "normal";
+        },
+      };
+    }
     if (!matches) return { activeId: null, stateOf: () => "normal" };
     return {
       activeId: null,
