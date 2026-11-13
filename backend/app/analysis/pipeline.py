@@ -1,14 +1,15 @@
 """Runs one analysis end to end: fetch, read, parse, resolve, build."""
 
 import asyncio
-import hashlib
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import IO, Literal
 
 from app.analysis.archive import SourceSnapshot, read_snapshot
+from app.analysis.cache import cache_key
 from app.analysis.errors import AnalysisError
+from app.analysis.evidence import EvidenceStore, blob_sha, build_index
 from app.analysis.github import CommitInfo, GitHubClient, RepositoryMetadata
 from app.analysis.graph import build_code_graph, resolve_imports
 from app.analysis.parser import ParsedFile, parse_source
@@ -44,9 +45,11 @@ def analyze_snapshot(
     snapshot: SourceSnapshot,
     deadline: float | None = None,
     on_progress: ProgressCallback | None = None,
+    evidence: EvidenceStore | None = None,
 ) -> CodeGraph:
     """The synchronous, CPU-bound part. Checks the deadline between files, since a thread
-    can't be interrupted from outside."""
+    can't be interrupted from outside. With an evidence store, also saves what AI Architect may
+    quote: the symbol and import index, and the source itself."""
     if not snapshot.files:
         raise AnalysisError(
             "no_supported_files",
@@ -72,15 +75,20 @@ def analyze_snapshot(
         configs=snapshot.configs,
     )
     blobs = {path: git_blob_sha(content) for path, content in snapshot.files.items()}
-    return build_code_graph(
-        repository, parsed, resolve_imports(parsed, resolver), snapshot.skipped, blobs=blobs
-    )
+    imports = resolve_imports(parsed, resolver)
+    graph = build_code_graph(repository, parsed, imports, snapshot.skipped, blobs=blobs)
+    if evidence is not None:
+        evidence.put(
+            cache_key(repository.full_name, repository.commit_sha),
+            build_index(repository.commit_sha, parsed, imports, blobs),
+            snapshot.files,
+        )
+    return graph
 
 
 def git_blob_sha(content: bytes) -> str:
     """The SHA git itself gives this content, so identity matches git's, not a guess."""
-    header = f"blob {len(content)}\0".encode()
-    return hashlib.sha1(header + content, usedforsecurity=False).hexdigest()
+    return blob_sha(content)
 
 
 def repository_info(metadata: RepositoryMetadata, commit: CommitInfo | str) -> RepositoryInfo:
@@ -108,9 +116,15 @@ def repository_info(metadata: RepositoryMetadata, commit: CommitInfo | str) -> R
 class Pipeline:
     """The async stages around analyze_snapshot. Split so the cache check sits in the middle."""
 
-    def __init__(self, github: GitHubClient, limits: AnalysisLimits) -> None:
+    def __init__(
+        self,
+        github: GitHubClient,
+        limits: AnalysisLimits,
+        evidence: EvidenceStore | None = None,
+    ) -> None:
         self.github = github
         self.limits = limits
+        self.evidence = evidence
 
     async def identify(self, ref: RepoRef, commit: str | None = None) -> RepositoryInfo:
         """Repository details and a pinned commit: the one asked for, or the latest."""
@@ -144,5 +158,5 @@ class Pipeline:
         finally:
             archive.close()
         return await asyncio.to_thread(
-            analyze_snapshot, repository, snapshot, deadline, on_progress
+            analyze_snapshot, repository, snapshot, deadline, on_progress, self.evidence
         )

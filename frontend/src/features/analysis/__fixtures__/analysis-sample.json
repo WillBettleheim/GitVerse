@@ -317,7 +317,7 @@
       "primaryLanguage": "TypeScript",
       "archived": false
     },
-    "analyzerVersion": "2",
+    "analyzerVersion": "3",
     "analyzedAt": "2026-01-01T00:00:00+00:00",
     "languages": {
       "javascript": 2,
