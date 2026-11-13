@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Logo } from "@/components/Logo";
 import type { CodeGraph } from "@/lib/graph/schema";
+import { RepoInputForm } from "@/features/analysis/RepoInputForm";
 import { HeroCity } from "./HeroCity";
 
 type Status = "live" | "planned";
@@ -51,9 +52,9 @@ const MAPPING: { code: string; city: string; rule: string; status: Status }[] = 
 ];
 
 const PIPELINE: { step: string; detail: string; status: Status }[] = [
-  { step: "Fetch", detail: "Shallow clone with hooks, submodules and LFS disabled", status: "planned" },
-  { step: "Parse", detail: "Real ASTs from Tree-sitter, never regex guesses", status: "planned" },
-  { step: "Connect", detail: "A NetworkX dependency graph with resolved imports", status: "planned" },
+  { step: "Fetch", detail: "One commit's archive, read in memory and never executed", status: "live" },
+  { step: "Parse", detail: "Real syntax trees from Tree-sitter, never regex guesses", status: "live" },
+  { step: "Connect", detail: "A NetworkX graph of resolved imports, cycles and hubs", status: "live" },
   { step: "Lay out", detail: "Deterministic: the same graph builds the same city", status: "live" },
   { step: "Explore", detail: "Fly through it, select a file and trace its links", status: "live" },
 ];
@@ -61,13 +62,14 @@ const PIPELINE: { step: string; detail: string; status: Status }[] = [
 const SAFEGUARDS = [
   "Repository code is parsed as text. Nothing gets installed, built or run.",
   "Only plain GitHub owner/repo references are accepted. Everything else is rejected.",
-  "Hard limits on repository size, file count, memory and time.",
+  "Hard limits on download size, file count, source size, concurrent analyses and time.",
+  "Only github.com is ever contacted, redirects are refused, and requests are rate limited.",
   "Every graph records where it came from. Sample data is always labelled as sample data.",
 ];
 
 function StatusTag({ status }: { status: Status }) {
   return status === "live" ? (
-    <span className="font-mono text-[11px] tracking-wide text-cyan">In the demo</span>
+    <span className="font-mono text-[11px] tracking-wide text-cyan">Live</span>
   ) : (
     <span className="font-mono text-[11px] tracking-wide text-faint">Planned</span>
   );
@@ -113,7 +115,7 @@ export function LandingPage({ graph }: { graph: CodeGraph }) {
           />
           <div className="relative z-10 mx-auto w-full max-w-7xl px-4 pt-24 pb-20 sm:px-8 lg:pb-8">
             <p className="font-mono text-xs tracking-wide text-cyan">
-              Early build: the demo city is live, repository analysis is next
+              Now analyzing public JavaScript and TypeScript repositories
             </p>
             <h1 className="mt-5 max-w-3xl text-5xl leading-[1.02] font-semibold tracking-tight text-balance sm:text-7xl">
               Explore Code Like a Universe.
@@ -122,14 +124,14 @@ export function LandingPage({ graph }: { graph: CodeGraph }) {
               GitVerse rebuilds a codebase as a 3D city you can fly through. Folders are districts,
               files are buildings, and imports light up the sky between them.
             </p>
-            <div className="mt-9 flex flex-wrap items-center gap-x-6 gap-y-3">
-              <Link href="/explore/demo" className={primaryCta}>
-                Enter the demo city
+            <div className="mt-9">
+              <RepoInputForm />
+            </div>
+            <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm">
+              <Link href="/explore/demo" className="text-text transition-colors hover:text-cyan">
+                Or explore the demo city →
               </Link>
-              <a
-                href="#map"
-                className="text-sm text-muted transition-colors hover:text-text"
-              >
+              <a href="#map" className="text-muted transition-colors hover:text-text">
                 How the map works
               </a>
             </div>
@@ -199,8 +201,8 @@ export function LandingPage({ graph }: { graph: CodeGraph }) {
                 <span className="text-faint">It never runs it.</span>
               </h2>
               <p className="mt-4 max-w-md leading-relaxed text-muted">
-                These are the rules the analysis pipeline is being built around. Input validation is
-                in place today; the rest arrive with the pipeline.
+                These rules are enforced by the analyzer today. Running it in an isolated
+                container is the next step.
               </p>
             </div>
             <ul className="space-y-4">
