@@ -45,6 +45,16 @@ const fragmentShader = /* glsl */ `
   }
 `;
 
+/** The plate look, shared with the time-travel animation. */
+export function createPlateMaterial() {
+  return new THREE.ShaderMaterial({
+    vertexShader,
+    fragmentShader,
+    uniforms: { uDim: { value: 1 } },
+    toneMapped: false,
+  });
+}
+
 interface DistrictsProps {
   districts: readonly District[];
   activeDistrictId: string | null;
