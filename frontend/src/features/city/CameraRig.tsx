@@ -9,6 +9,7 @@ import {
   cameraDistance,
   cinematicPose,
   fitPose,
+  framePose,
   focusPose,
   interpolatePose,
   ISO_ELEVATION,
@@ -55,6 +56,8 @@ interface ExplorerRigProps {
   bounds: CityLayout["bounds"];
   selected: Building | null;
   command: CameraCommand;
+  /** The buildings a "frame" command asks for. */
+  framed: readonly Building[];
   cinematic: boolean;
   reducedMotion: boolean;
   onUserInteract: () => void;
@@ -64,6 +67,7 @@ export function ExplorerRig({
   bounds,
   selected,
   command,
+  framed,
   cinematic,
   reducedMotion,
   onUserInteract,
@@ -114,6 +118,11 @@ export function ExplorerRig({
     if (command.type === "reset") {
       userMoved.current = false;
       goal.current = home;
+    } else if (command.type === "frame") {
+      const pose = framePose(framed, readPose(get().camera, controls.current), viewport);
+      if (!pose) return;
+      userMoved.current = true;
+      goal.current = pose;
     } else {
       // Fit keeps the angle the user chose.
       const current = readPose(get().camera, controls.current);

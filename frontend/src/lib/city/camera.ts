@@ -103,6 +103,45 @@ export function focusPose(building: Building, current: CameraPose, viewport: Vie
   };
 }
 
+/**
+ * Frames a group of buildings from the current angle, such as the files an answer names. Never
+ * zooms in further than focusing on a single one of them would.
+ */
+export function framePose(
+  buildings: readonly Building[],
+  current: CameraPose,
+  viewport: Viewport,
+): CameraPose | null {
+  if (buildings.length === 0) return null;
+  if (buildings.length === 1) return focusPose(buildings[0], current, viewport);
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minZ = Infinity;
+  let maxZ = -Infinity;
+  let top = 0;
+  for (const b of buildings) {
+    minX = Math.min(minX, b.x - b.width / 2);
+    maxX = Math.max(maxX, b.x + b.width / 2);
+    minZ = Math.min(minZ, b.z - b.depth / 2);
+    maxZ = Math.max(maxZ, b.z + b.depth / 2);
+    top = Math.max(top, b.baseY + b.height);
+  }
+  const width = maxX - minX;
+  const depth = maxZ - minZ;
+  const fit = fitPose(
+    { width, depth, maxHeight: top, radius: Math.hypot(width, depth) / 2 },
+    viewport,
+    current.azimuth,
+    current.elevation,
+  );
+  const closest = Math.min(...buildings.map((b) => focusPose(b, current, viewport).zoom));
+  return {
+    ...fit,
+    target: [(minX + maxX) / 2, top / 2, (minZ + maxZ) / 2],
+    zoom: Math.min(fit.zoom, closest),
+  };
+}
+
 /** Wraps to (-π, π], so azimuth always turns the short way round. */
 function shortestAngle(from: number, to: number): number {
   const turn = (to - from) % (Math.PI * 2);

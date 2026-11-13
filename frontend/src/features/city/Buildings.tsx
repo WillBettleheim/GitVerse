@@ -15,6 +15,7 @@ const WHITE = new THREE.Color("#ffffff");
 const AMBER = new THREE.Color("#fbbf24");
 const EMERALD = new THREE.Color("#34d399");
 const SKY = new THREE.Color("#38bdf8");
+const ROSE = new THREE.Color("#f472b6");
 
 /** Writes the colour a building gets in a highlight state. Reuses `out` to avoid allocation. */
 export function applyHighlightColor(out: THREE.Color, base: string, state: HighlightState) {
@@ -36,6 +37,8 @@ export function applyHighlightColor(out: THREE.Color, base: string, state: Highl
       return out.lerp(AMBER, 0.75).multiplyScalar(1.3);
     case "match":
       return out.lerp(WHITE, 0.3).multiplyScalar(1.45);
+    case "insight":
+      return out.lerp(ROSE, 0.6).multiplyScalar(1.5);
     case "added":
       return out.lerp(EMERALD, 0.75).multiplyScalar(1.35);
     case "modified":

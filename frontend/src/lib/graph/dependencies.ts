@@ -17,7 +17,7 @@ export interface Reach {
   importedBy: ReadonlyMap<string, number>;
 }
 
-export type EdgeRole = "import" | "importer" | "cycle" | "added";
+export type EdgeRole = "import" | "importer" | "cycle" | "added" | "insight";
 
 export interface RoleEdge {
   source: string;

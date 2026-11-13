@@ -31,6 +31,7 @@ import { Districts } from "./Districts";
 import { LabelProjector, type LabelAnchor } from "./LabelProjector";
 import { Platform } from "./Platform";
 import { useReducedMotion } from "./use-reduced-motion";
+import { useArchitectStore } from "@/features/architect/store";
 import { TransitionLayer } from "@/features/timetravel/TransitionLayer";
 import { useCityTransition } from "@/features/timetravel/use-city-transition";
 
@@ -75,6 +76,7 @@ export default function CityCanvas({ graph, city, mode, fallback }: CityCanvasPr
   const hover = useExplorerStore((s) => s.hover);
   const stopCinematic = useExplorerStore((s) => s.stopCinematic);
   const setRenderInfo = useExplorerStore((s) => s.setRenderInfo);
+  const spotlight = useArchitectStore((s) => (interactive ? s.spotlight : null));
 
   const [tier, setTier] = useState<QualityTier>(() => readDevice(graph.files.length));
   const preset = QUALITY_PRESETS[tier];
@@ -88,29 +90,43 @@ export default function CityCanvas({ graph, city, mode, fallback }: CityCanvasPr
   const matches = interactive ? search.matches : null;
   const transition = useCityTransition(city, interactive, reducedMotion);
   const changeKinds = transition.shown?.changes.kinds ?? null;
+  const insights = useMemo(() => (spotlight ? new Set(spotlight.files) : null), [spotlight]);
   const highlight = useMemo(
     () =>
       computeHighlight(adjacency, selectedId, hoveredId, {
         reach: selection.reach,
         cycle: selection.cycle,
         matches,
+        insights,
         changes: changeKinds,
       }),
-    [adjacency, selectedId, hoveredId, selection, matches, changeKinds],
+    [adjacency, selectedId, hoveredId, selection, matches, insights, changeKinds],
   );
   const addedEdges = transition.shown?.addedEdges;
   const active = useMemo(() => {
     const edges = activeEdges(city, selection, hoveredId);
-    if (edges.length > 0 || !addedEdges || matches) return edges;
+    if (edges.length > 0 || matches) return edges;
+    if (spotlight && spotlight.edges.length > 0) {
+      // An answer's relationships, drawn only where the city really has that import.
+      const real = new Set(city.connections.map((c) => `${c.source}\n${c.target}`));
+      return spotlight.edges
+        .filter((e) => real.has(`${e.source}\n${e.target}`))
+        .map((e) => ({ ...e, role: "insight" as const }));
+    }
+    if (!addedEdges) return edges;
     // Time travel with nothing selected: light up the dependencies this step introduced.
     const present = new Set(city.buildings.map((b) => b.id));
     return addedEdges
       .filter((e) => present.has(e.source) && present.has(e.target))
       .map((e) => ({ ...e, role: "added" as const }));
-  }, [city, selection, hoveredId, addedEdges, matches]);
+  }, [city, selection, hoveredId, addedEdges, matches, spotlight]);
 
   const byId = useMemo(() => new Map(city.buildings.map((b) => [b.id, b])), [city.buildings]);
   const selected = selectedId ? (byId.get(selectedId) ?? null) : null;
+  const framed = useMemo(
+    () => (command.type === "frame" ? (command.ids ?? []).flatMap((id) => byId.get(id) ?? []) : []),
+    [command, byId],
+  );
   const tooltipId = hoveredId ?? selectedId;
   const tooltipBuilding = tooltipId ? (byId.get(tooltipId) ?? null) : null;
   const activeBuilding = highlight.activeId ? byId.get(highlight.activeId) : undefined;
@@ -168,7 +184,7 @@ export default function CityCanvas({ graph, city, mode, fallback }: CityCanvasPr
   const frameloop = !visible || covered ? "never" : animated ? "always" : "demand";
 
   const distance = useMemo(() => cameraDistance(city.bounds), [city.bounds]);
-  const dimmed = highlight.activeId !== null || matches !== null;
+  const dimmed = highlight.activeId !== null || matches !== null || Boolean(insights?.size);
   // Bigger cities are viewed from further out, so beacons need more height to stay visible.
   const accentScale = Math.max(1, city.bounds.radius / ACCENT_REFERENCE_RADIUS);
 
@@ -251,6 +267,7 @@ export default function CityCanvas({ graph, city, mode, fallback }: CityCanvasPr
               bounds={city.bounds}
               selected={selected}
               command={command}
+              framed={framed}
               cinematic={cinematic}
               reducedMotion={reducedMotion}
               onUserInteract={stopCinematic}

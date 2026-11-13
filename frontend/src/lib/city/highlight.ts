@@ -19,6 +19,8 @@ export type HighlightState =
   | "cycle"
   /** Matches the current search, with nothing selected. */
   | "match"
+  /** Named by AI Architect's latest answer, with nothing selected or searched. */
+  | "insight"
   /** Time travel: what happened to this file since the previous snapshot. */
   | "added"
   | "modified"
@@ -37,6 +39,8 @@ export interface HighlightContext {
   cycle?: ReadonlySet<string> | null;
   /** Search results. When set and nothing is selected, everything else dims. */
   matches?: ReadonlySet<string> | null;
+  /** Files AI Architect pointed to. Shown when nothing is selected, hovered or searched. */
+  insights?: ReadonlySet<string> | null;
   /** Time travel changes. Shown when nothing is selected, hovered or searched. */
   changes?: ReadonlyMap<string, ChangeKind> | null;
 }
@@ -51,6 +55,10 @@ export function computeHighlight(
   if (!activeId) {
     const matches = context.matches;
     const changes = context.changes;
+    const insights = context.insights;
+    if (!matches && insights && insights.size > 0) {
+      return { activeId: null, stateOf: (id) => (insights.has(id) ? "insight" : "dimmed") };
+    }
     if (!matches && changes) {
       return {
         activeId: null,
