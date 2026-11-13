@@ -26,6 +26,8 @@ class Job:
     id: str
     ref: RepoRef
     created_at: str
+    # A specific commit to analyze, or None for the default branch's latest.
+    commit: str | None = None
     status: JobStatus = "queued"
     progress: Progress = field(default_factory=Progress)
     repository: RepositoryInfo | None = None
@@ -56,31 +58,73 @@ class JobManager:
         self._timeout = timeout_seconds
         self._jobs: OrderedDict[str, Job] = OrderedDict()
         self._tasks: set[asyncio.Task[None]] = set()
+        self._task_of: dict[str, asyncio.Task[None]] = {}
 
     def get(self, job_id: str) -> Job | None:
         return self._jobs.get(job_id)
 
-    def find_active(self, ref: RepoRef) -> Job | None:
-        """An unfinished job for this repository, which a new request can share."""
+    def find_active(self, ref: RepoRef, commit: str | None = None) -> Job | None:
+        """An unfinished job for this repository and commit, which a new request can share."""
         for job in self._jobs.values():
-            if not job.finished and job.ref.full_name.lower() == ref.full_name.lower():
+            if (
+                not job.finished
+                and job.commit == commit
+                and job.ref.full_name.lower() == ref.full_name.lower()
+            ):
                 return job
         return None
 
-    def submit(self, ref: RepoRef) -> Job:
-        existing = self.find_active(ref)
+    def cached(self, ref: RepoRef, commit: str) -> CodeGraph | None:
+        """A finished result for an exact commit, without asking GitHub anything."""
+        return self._cache.get(cache_key(ref.full_name, commit))
+
+    def complete_from_cache(self, ref: RepoRef, commit: str, graph: CodeGraph) -> Job:
+        files = len(graph.files)
+        job = Job(
+            id=uuid.uuid4().hex,
+            ref=ref,
+            created_at=_now(),
+            commit=commit,
+            status="complete",
+            progress=Progress("complete", files, files),
+            repository=graph.analysis.repository if graph.analysis else None,
+            result=graph,
+            cached=True,
+        )
+        self._jobs[job.id] = job
+        self._evict()
+        return job
+
+    def cancel(self, job_id: str) -> bool:
+        """Cancels a job that hasn't started. A running one finishes, and its result is cached."""
+        job = self._jobs.get(job_id)
+        task = self._task_of.get(job_id)
+        if job is None or task is None or job.status != "queued":
+            return False
+        task.cancel()
+        self._fail(job, "cancelled", "The analysis was cancelled before it started.")
+        return True
+
+    def submit(self, ref: RepoRef, commit: str | None = None) -> Job:
+        existing = self.find_active(ref, commit)
         if existing is not None:
             return existing
         active = sum(1 for job in self._jobs.values() if not job.finished)
         if active >= self._max_concurrent + self._max_queued:
             raise AnalysisError("busy", "The analyzer is busy. Try again in a minute.")
 
-        job = Job(id=uuid.uuid4().hex, ref=ref, created_at=_now())
+        job = Job(id=uuid.uuid4().hex, ref=ref, created_at=_now(), commit=commit)
         self._jobs[job.id] = job
         self._evict()
         task = asyncio.create_task(self._run(job))
         self._tasks.add(task)
-        task.add_done_callback(self._tasks.discard)
+        self._task_of[job.id] = task
+
+        def forget(done: asyncio.Task[None]) -> None:
+            self._tasks.discard(done)
+            self._task_of.pop(job.id, None)
+
+        task.add_done_callback(forget)
         return job
 
     async def _run(self, job: Job) -> None:
@@ -94,6 +138,9 @@ class JobManager:
                 await asyncio.wait_for(self._analyze(job, deadline, report), self._timeout + 5)
             job.status = "complete"
             job.progress = Progress("complete", job.progress.files_total, job.progress.files_total)
+        except asyncio.CancelledError:
+            if not job.finished:
+                self._fail(job, "cancelled", "The analysis was cancelled.")
         except AnalysisError as exc:
             self._fail(job, exc.code, exc.message)
         except TimeoutError:
@@ -105,7 +152,7 @@ class JobManager:
 
     async def _analyze(self, job: Job, deadline: float, report: ProgressCallback) -> None:
         report(Progress(stage="fetching_metadata"))
-        repository = await self._pipeline.identify(job.ref)
+        repository = await self._pipeline.identify(job.ref, job.commit)
         job.repository = repository
         key = cache_key(repository.full_name, repository.commit_sha)
         cached = self._cache.get(key)

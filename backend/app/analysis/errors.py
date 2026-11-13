@@ -16,6 +16,8 @@ ErrorCode = Literal[
     "unsafe_archive",
     "timeout",
     "busy",
+    "cancelled",
+    "not_analyzed",
     "internal_error",
 ]
 
