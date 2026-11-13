@@ -7,6 +7,10 @@ import { generateCity } from "@/lib/city/layout";
 import { buildAdjacency, type Adjacency } from "@/lib/graph/queries";
 import type { CodeGraph } from "@/lib/graph/schema";
 import { ApiStatus } from "./ApiStatus";
+import { DependencyGraphView } from "./DependencyGraphView";
+import { DependencyLegend } from "./DependencyLegend";
+import { ExplorerDataProvider, useExplorerData } from "./explorer-data";
+import { useSearchResults } from "./use-explorer-data";
 import { CanvasToolbar } from "./CanvasToolbar";
 import { DemoBanner } from "./DemoBanner";
 import { FileNavigator } from "./FileNavigator";
@@ -43,42 +47,62 @@ export function ExplorerShell({ graph, headerSlot }: ExplorerShellProps) {
   useKeyboardShortcuts();
 
   return (
-    <div className="flex min-h-svh flex-col bg-void lg:h-svh lg:overflow-hidden">
-      <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-line bg-ink px-4">
-        <div className="flex min-w-0 items-center gap-4">
-          <Logo />
-          <span aria-hidden="true" className="h-4 w-px bg-line" />
-          <span className="truncate font-mono text-xs text-muted">{graph.provenance.repository}</span>
-          {headerSlot}
+    <ExplorerDataProvider graph={graph} city={city} adjacency={adjacency}>
+      <div className="flex min-h-svh flex-col bg-void lg:h-svh lg:overflow-hidden">
+        <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-line bg-ink px-4">
+          <div className="flex min-w-0 items-center gap-4">
+            <Logo />
+            <span aria-hidden="true" className="h-4 w-px bg-line" />
+            <span className="truncate font-mono text-xs text-muted">
+              {graph.provenance.repository}
+            </span>
+            {headerSlot}
+          </div>
+          <ApiStatus />
+        </header>
+
+        <DemoBanner provenance={graph.provenance} />
+
+        <div className="flex flex-1 flex-col lg:grid lg:min-h-0 lg:grid-cols-[17rem_minmax(0,1fr)_20rem]">
+          <main className="relative order-1 h-[58svh] shrink-0 lg:order-2 lg:h-auto">
+            <LazyCityCanvas graph={graph} city={city} mode="explorer" fallback={WEBGL_FALLBACK} />
+            <MainOverlay />
+            <CanvasToolbar omittedFileCount={city.omittedFileCount} />
+          </main>
+
+          <aside
+            aria-label="Files"
+            className="order-3 min-h-0 border-line bg-ink lg:order-1 lg:border-r"
+          >
+            <FileNavigator />
+          </aside>
+
+          <aside
+            aria-label="Details"
+            className="order-2 min-h-0 overflow-y-auto border-b border-line bg-ink lg:order-3 lg:border-b-0 lg:border-l"
+          >
+            <Inspector />
+          </aside>
         </div>
-        <ApiStatus />
-      </header>
 
-      <DemoBanner provenance={graph.provenance} />
-
-      <div className="flex flex-1 flex-col lg:grid lg:min-h-0 lg:grid-cols-[17rem_minmax(0,1fr)_20rem]">
-        <main className="relative order-1 h-[58svh] shrink-0 lg:order-2 lg:h-auto">
-          <LazyCityCanvas graph={graph} city={city} mode="explorer" fallback={WEBGL_FALLBACK} />
-          <CanvasToolbar omittedFileCount={city.omittedFileCount} />
-        </main>
-
-        <aside
-          aria-label="Files"
-          className="order-3 min-h-0 border-line bg-ink lg:order-1 lg:border-r"
-        >
-          <FileNavigator city={city} />
-        </aside>
-
-        <aside
-          aria-label="Details"
-          className="order-2 min-h-0 overflow-y-auto border-b border-line bg-ink lg:order-3 lg:border-b-0 lg:border-l"
-        >
-          <Inspector graph={graph} city={city} adjacency={adjacency} />
-        </aside>
+        <SelectionAnnouncer adjacency={adjacency} />
       </div>
+    </ExplorerDataProvider>
+  );
+}
 
-      <SelectionAnnouncer adjacency={adjacency} />
-    </div>
+/** The dependency graph view when chosen, and the legend over the city otherwise. */
+function MainOverlay() {
+  const { graph, adjacency, cycles } = useExplorerData();
+  const mainView = useExplorerStore((s) => s.mainView);
+  const selectedId = useExplorerStore((s) => s.selectedId);
+  const search = useSearchResults(graph.files, adjacency);
+  if (mainView === "graph") return <DependencyGraphView />;
+  return (
+    <DependencyLegend
+      inCycle={selectedId !== null && cycles.groupOf.has(selectedId)}
+      searching={search.active}
+    />
   );
 }
 
@@ -99,17 +123,20 @@ function useKeyboardShortcuts() {
   const select = useExplorerStore((s) => s.select);
   const fitCamera = useExplorerStore((s) => s.fitCamera);
   const resetCamera = useExplorerStore((s) => s.resetCamera);
+  const setMainView = useExplorerStore((s) => s.setMainView);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       const target = event.target as HTMLElement | null;
       if (target?.closest("input, textarea, select, [contenteditable]")) return;
-      if (event.key === "Escape") select(null);
-      else if (event.key === "f") fitCamera();
+      if (event.key === "Escape") {
+        select(null);
+        setMainView("city");
+      } else if (event.key === "f") fitCamera();
       else if (event.key === "r") resetCamera();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [select, fitCamera, resetCamera]);
+  }, [select, fitCamera, resetCamera, setMainView]);
 }
