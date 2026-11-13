@@ -1,5 +1,6 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import httpx
 from fastapi import FastAPI
@@ -7,12 +8,16 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
 from app.analysis.cache import ResultCache
+from app.analysis.evidence import EvidenceStore
 from app.analysis.github import GitHubClient
 from app.analysis.jobs import JobManager
 from app.analysis.pipeline import Pipeline
+from app.api.architect import router as architect_router
 from app.api.history import HISTORY_TTL_SECONDS, TtlCache
 from app.api.history import router as history_router
 from app.api.routes import router
+from app.assistant.llm import AnthropicClient, LLMClient
+from app.assistant.service import ArchitectService
 from app.core.config import AnalysisLimits, Settings, get_limits, get_settings
 from app.core.middleware import BodySizeLimitMiddleware
 from app.core.ratelimit import SlidingWindowLimiter
@@ -22,6 +27,7 @@ def create_app(
     settings: Settings | None = None,
     limits: AnalysisLimits | None = None,
     pipeline: Pipeline | None = None,
+    llm: LLMClient | None = None,
 ) -> FastAPI:
     settings = settings or get_settings()
     limits = limits or get_limits()
@@ -36,6 +42,22 @@ def create_app(
         )
         token = settings.github_token.get_secret_value() if settings.github_token else None
         pipeline = Pipeline(GitHubClient(http, token), limits)
+
+    evidence = EvidenceStore(
+        str(Path(settings.cache_dir).parent / "evidence") if settings.cache_dir else None
+    )
+    pipeline.evidence = evidence
+    api_key = (
+        settings.anthropic_api_key.get_secret_value().strip() if settings.anthropic_api_key else ""
+    )
+    if llm is None and api_key:
+        llm = AnthropicClient(
+            api_key=api_key,
+            model=settings.architect_model,
+            effort=settings.architect_effort,
+            max_tokens=settings.architect_max_output_tokens,
+            timeout_seconds=settings.architect_timeout_seconds,
+        )
 
     jobs = JobManager(
         pipeline=pipeline,
@@ -59,6 +81,8 @@ def create_app(
     app.state.github = pipeline.github
     app.state.history_cache = TtlCache[dict[str, object]](HISTORY_TTL_SECONDS, 64)
     app.state.diff_cache = TtlCache[dict[str, object]](3600, 64)
+    app.state.architect = ArchitectService(evidence, llm, settings.max_concurrent_architect)
+    app.state.architect_limiter = SlidingWindowLimiter(settings.architect_requests_per_minute)
     app.add_middleware(BodySizeLimitMiddleware, max_bytes=settings.max_request_body_bytes)
     # Added last so it is outermost: limit rejections still carry CORS headers.
     app.add_middleware(
@@ -71,6 +95,7 @@ def create_app(
     )
     app.include_router(router)
     app.include_router(history_router)
+    app.include_router(architect_router)
     return app
 
 

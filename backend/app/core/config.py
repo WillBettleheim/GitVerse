@@ -1,6 +1,7 @@
 """Environment-driven settings. Every variable is prefixed with GITVERSE_."""
 
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -43,7 +44,16 @@ class Settings(BaseSettings):
     # Finished results, keyed by repository and commit. Empty disables the disk cache.
     cache_dir: str = ".cache/analyses"
     github_token: SecretStr | None = None
+    # Server-side only. Without it, AI Architect returns the evidence it finds, unexplained.
     anthropic_api_key: SecretStr | None = None
+    architect_model: str = "claude-opus-5-5"
+    architect_effort: Literal["low", "medium", "high", "xhigh", "max"] = "medium"
+    # Includes the model's thinking.
+    architect_max_output_tokens: int = Field(default=16_000, gt=0, le=64_000)
+    architect_timeout_seconds: float = Field(default=90, gt=0)
+    # Questions per client address per minute, and model calls running at once.
+    architect_requests_per_minute: int = Field(default=6, gt=0)
+    max_concurrent_architect: int = Field(default=2, gt=0)
 
     @property
     def cors_origin_list(self) -> list[str]:

@@ -114,12 +114,13 @@ def health() -> HealthResponse:
 
 
 @router.get("/api/v1/meta", tags=["system"])
-def meta(limits: Annotated[AnalysisLimits, Depends(get_limits)]) -> MetaResponse:
+def meta(request: Request, limits: Annotated[AnalysisLimits, Depends(get_limits)]) -> MetaResponse:
     return MetaResponse(
         version=__version__,
         capabilities=Capabilities(
             repository_analysis=True,
-            ai_explanations=False,
+            # AI Architect always finds evidence. This says whether a model explains it.
+            ai_explanations=request.app.state.architect.enabled,
             languages=["javascript", "jsx", "typescript", "tsx"],
         ),
         limits=limits,
