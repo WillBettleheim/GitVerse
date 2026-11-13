@@ -158,6 +158,51 @@ Not supported, so these are reported as external or unresolved rather than guess
 is listed as an external package), bundler aliases outside tsconfig, and non-literal specifiers
 such as `require(name)`, which are ignored.
 
+## Git time travel [built]
+
+Real history only. Nothing about past states is simulated: every historical city is a full analysis
+of the repository at that commit, downloaded at its exact SHA.
+
+**Endpoints**
+
+- `GET /api/v1/history?repository=&page=` lists the default branch, newest first, 30 commits a page
+  for up to 10 pages (the last 300 commits). Pages are cached for five minutes.
+- `POST /api/v1/analyses` takes an optional `commit` (a full SHA). A commit that's already cached is
+  returned immediately, with no GitHub calls, and doesn't count against the rate limit.
+- `DELETE /api/v1/analyses/{id}` cancels an analysis that hasn't started. A running one finishes,
+  since its parsing thread can't be stopped safely, and its result is cached for next time.
+- `GET /api/v1/compare?repository=&base=&head=` diffs two analyzed commits (409 until both are).
+
+**Not every commit is analyzed.** The frontend analyzes six commits evenly spaced through the first
+page, two at a time, and any other commit only when someone selects it. Playback steps through
+analyzed commits only. Each new snapshot costs two GitHub API calls plus an archive download.
+
+**Identity.** Every file carries its git blob SHA, computed exactly as git does, so "unchanged" means
+byte-for-byte identical and is never inferred from metrics. Files are matched across commits by
+path.
+
+**Rename detection, and its limits.** Renames come from two sources, and the diff says which:
+
+1. GitHub's comparison API, which detects renames by content similarity, so it also finds files
+   that were renamed and edited. GitHub lists at most 300 changed files. Past that the list is cut
+   off, renames in the rest are unknown, and the diff marks rename detection as incomplete.
+2. Exact content: a removed file and an added file with the same blob SHA are a move, if the match
+   is one-to-one. This works without GitHub, but can't see a rename that also changed content.
+   That case shows as one file removed and one added.
+
+Renamed files keep their identity in the animation and in dependency comparisons: an import of a
+moved file isn't reported as a dependency change.
+
+**Interpretation.** Commit messages are displayed as the author wrote them, labelled as such.
+GitVerse doesn't say why anything changed.
+
+**Animation.** `lib/timetravel/transition.ts` builds a plan from two city layouts: each building's
+tiers interpolate between their old and new boxes, added files grow from the ground and removed
+ones sink, districts expand or collapse, and removed and added dependency arcs cross-fade. Each
+frame only rewrites instance matrices. The camera keeps whatever angle the user chose; without a
+user camera move, each new layout is re-framed from the current angle. Reduced motion skips the
+animation and shows the result directly.
+
 ## Backend layout [built]
 
 ```

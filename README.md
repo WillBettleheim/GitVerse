@@ -67,6 +67,10 @@ Demo mode doesn't need the backend. To run only the frontend, use `make dev-fron
     with matches lit in the city
   - Insights: files, edges, cycles, most depended-upon files, largest modules, complexity hotspots
     and how code is spread across folders, all counted from the graph
+- **Git time travel** for analyzed repositories: a timeline of the default branch's real commit
+  history. Six representative commits are analyzed up front, and any other on request. Play
+  through them, compare any two, or return to the latest. The city animates between snapshots:
+  new files rise, removed ones sink, changed ones resize, and dependency arcs fade in or out.
 - **Stress-test cities** with generated data, at `/explore/demo/stress/100`, `/500` and `/1000`
 - **Deterministic city layout**: the same graph always builds the same city, whatever the input order
 - **Real repository analysis**: paste a public GitHub URL on the landing page. The backend fetches
