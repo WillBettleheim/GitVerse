@@ -14,7 +14,8 @@ Status markers: **[built]** exists and is tested. **[planned]** is design only.
                  ┌───────┴──────────────── FastAPI backend ─────────────────────────┐
                  │ repo ref validation ──▶ GitHub archive (in memory) ──▶ Tree-sitter │
                  │ ──▶ import resolution ──▶ NetworkX graph ──▶ cached CodeGraph     │
-                 │ [all built]   git history [planned]   Claude explanations [planned]│
+                 │ ──▶ evidence index ──▶ AI Architect (retrieval ──▶ Claude ──▶ checks)│
+                 │ [all built]                                                       │
                  └──────────────────────────────────────────────────────────────────┘
 ```
 
@@ -111,6 +112,8 @@ frontend/src/
   lib/city/            Pure logic: layout, camera, highlight, arcs, quality. No React or WebGL
   features/city/       React Three Fiber scene
   features/explorer/   Explorer shell, panels, Zustand store
+  features/architect/  AI Architect panel and its answer state
+  lib/architect/       AI Architect API client and answer schema
   features/demo/       Sample data, stress-test generator, dataset switcher
   features/landing/    Landing page sections
   lib/config.ts        Validated public environment config
@@ -203,6 +206,73 @@ frame only rewrites instance matrices. The camera keeps whatever angle the user 
 user camera move, each new layout is re-framed from the current angle. Reduced motion skips the
 animation and shows the result directly.
 
+## AI Architect [built]
+
+Questions in plain language about one analyzed commit, answered from evidence GitVerse gathered
+itself. It explains architecture; it isn't a general chatbot, and it never sees the whole repository.
+
+**What it may quote.** When a commit is analyzed, the pipeline also saves an evidence index: each
+file's top-level declarations and class methods with their exact line spans, and each import with
+its line and where it resolved. Source is stored by git blob SHA, so commits share copies, and is
+checked against that SHA every time it's read, so a quoted line is exactly what the commit holds.
+Answering a question needs no GitHub calls and no archive download.
+
+**Flow** (`POST /api/v1/architect/questions`, `backend/app/assistant/`):
+
+1. **Retrieve** (`retrieval.py`, deterministic). The question is split into words, with related
+   words for common concepts (asking about authentication also searches `login`, `session`,
+   `token`, `jwt` and so on). Files are scored on their name, their folder, their declarations and
+   the packages they import (`jsonwebtoken` suggests authentication). A file needs a real match to
+   count; related words alone don't qualify it. The question type adds graph facts: the most
+   connected files, a file's importers with each import's line (and what depends on it
+   indirectly), import cycles with their edges and whether they're type-only, a structural
+   overview, and, given other analyzed commits, what changed between them. A selected file or a
+   path in the question becomes the subject of "this module".
+2. **Bound.** At most 8 files, 6 source excerpts of up to 40 lines, 16,000 characters of quoted
+   source, and a full file list only for repositories of 300 files or fewer. The finished prompt
+   is checked against a hard ceiling before sending. A 1,500-file repository stays well under it.
+3. **Short-circuit.** If nothing relates to the question, the answer says so, lists what was
+   searched, and no model is called.
+4. **Ask** (`llm.py`). One request to `claude-opus-5-5` through the Anthropic SDK, server side.
+   Structured output (a JSON schema) returns the answer, claims each marked verified or inferred
+   with the evidence ids they rest on, relevant files, relationships, and an uncertainty note.
+   Effort is set explicitly (medium by default). Server-side fallback (`fallbacks: "default"`)
+   lets the API retry a declined request on Anthropic's recommended fallback model, and the answer
+   says when that happened. The model gets no tools.
+5. **Check** (`validate.py`). Before anyone sees the answer: files not in the analysis are removed;
+   relationships are kept only if the import exists, and carry the analysis's line; citations of
+   evidence that wasn't supplied are dropped; a "verified" claim left without evidence becomes
+   "inferred" and is marked as relabelled; paths in the prose that aren't in the analysis are
+   flagged. Line links come only from evidence, never from the model's text. Everything removed or
+   changed is listed in the answer's notes.
+
+**Without an API key**, the same endpoint returns the retrieved evidence, ranked and labelled as
+evidence only, with no explanation written on top. `/api/v1/meta` reports whether AI explanations
+are on.
+
+**In the explorer**, AI Architect is a tab beside the inspector, for real analyses only. An
+answer's files light up in the city (pink), its relationships are drawn as arcs where the import
+really exists, "Focus camera" frames those buildings from the current angle, and each file opens
+in the inspector or on GitHub at the exact lines, pinned to the analyzed commit. Selecting a file
+makes it the subject of the next question. Answers stay tied to the commit they were asked about.
+
+**Evaluations.** `backend/tests/fixtures/repos/architect-app` is a small Express API whose answers
+are known: authentication in `src/auth` and `src/middleware/auth.ts`, routes in `src/routes`, a
+runtime import cycle between `src/auth/session.ts` and `src/services/userService.ts`, and a
+prompt-injection comment in `src/lib/logger.ts`. `tests/architect_cases.py` holds the cases.
+`test_architect_eval.py` checks, with no network: that retrieval finds each known answer; that
+every excerpt is verbatim with correct line numbers and every import line points at that import;
+that invented files, relationships and citations are removed; that unsupported questions get an
+honest no without a model call; that repository text is quoted as untrusted; and that prompts stay
+bounded on a large repository. `test_architect_live_eval.py` grades the real model on the same
+cases. It's billed, so it only runs with `GITVERSE_RUN_LIVE_EVALS=1` and a key.
+
+**Limits.** Retrieval matches words, related words and structure. It has no embeddings, so a
+concept named in ways it doesn't know can be missed; the answer then says the evidence is
+insufficient rather than guessing. It sees what the analysis sees: JavaScript and TypeScript
+structure, not runtime behavior, configuration values or other languages. Each question stands
+alone; follow-ups don't carry the previous answer.
+
 ## Backend layout [built]
 
 ```
@@ -212,6 +282,8 @@ backend/app/
   core/middleware.py   Request body size limits
   core/ratelimit.py    Per-client sliding-window limit for new analyses
   api/routes.py        /health, /api/v1/meta, /api/v1/analyses
+  api/history.py       /api/v1/history, /api/v1/compare
+  api/architect.py     /api/v1/architect/questions
   schemas/graph.py     CodeGraph contract
   services/repo_ref.py Allowlist parser for user-supplied repository references
   analysis/github.py   GitHub client: two fixed hosts, no redirects
@@ -222,10 +294,15 @@ backend/app/
   analysis/pipeline.py Orchestration
   analysis/jobs.py     Background jobs, concurrency, de-duplication
   analysis/cache.py    Memory and disk result cache
+  analysis/evidence.py Symbol and import index, and source stored by blob SHA
+  assistant/           AI Architect: retrieval, prompt, Claude client, answer checks, service
+  schemas/assistant.py AI Architect request and answer contract
 ```
 
 The backend's fixture test writes `frontend/src/features/analysis/__fixtures__/analysis-sample.json`
 (`UPDATE_FIXTURES=1`), and the frontend's tests parse it, so the two schemas can't drift apart.
+`frontend/src/features/architect/__fixtures__/answer-sample.json` does the same for AI Architect's
+answer format.
 
 ## Security model for untrusted repositories
 
@@ -238,9 +315,11 @@ Built and tested:
 - Requests go only to `api.github.com` and `codeload.github.com`, over https, with URLs built from
   validated parts and a 40-hex commit SHA. Redirects are never followed: a renamed repository is
   reported, not chased.
-- Nothing from the repository is written to disk or executed, and no dependencies are installed.
-  Tar entries are read into memory; symlinks, hard links and devices are skipped; any absolute or
-  `..` path rejects the archive.
+- Nothing from the repository is executed, and no dependencies are installed. Tar entries are
+  read into memory; symlinks, hard links and devices are skipped; any absolute or `..` path rejects
+  the archive. The only repository content written to disk is analyzed source, saved as inert
+  bytes for AI Architect to quote, under a name that is its validated blob SHA, and checked
+  against that SHA when read.
 - Limits on download size, archive entries, source files, per-file size, total source, declared
   unpacked size (a decompression-bomb guard) and wall-clock time. Too many files fails clearly
   instead of silently truncating.
@@ -250,6 +329,17 @@ Built and tested:
 - Users see only prepared error messages. Unexpected exceptions are logged server-side and reported
   as a generic failure.
 - Request bodies are capped, and a declared `Content-Length` is required.
+- **AI Architect** treats source, comments, descriptions and commit messages as untrusted. They're
+  quoted to the model inside `<untrusted>` tags it is told never to obey, and any tag-like text
+  inside them is defused so they can't close the block. That's one layer; the others don't rely on
+  the model. It has no tools, so it can't run commands or read files. It sees only the bounded
+  evidence for one question, from the commit asked about. Every file, line and relationship in its
+  answer is checked against the analysis, so a model that obeyed injected text still couldn't
+  introduce a file or dependency. The API key stays on the server and is never sent to the
+  browser. Questions are capped at 500 characters, rate limited per client
+  (`GITVERSE_ARCHITECT_REQUESTS_PER_MINUTE`), and limited to
+  `GITVERSE_MAX_CONCURRENT_ARCHITECT` model calls at once (503 when busy). Model errors become
+  prepared messages; details are logged only.
 
 Not yet built:
 
@@ -260,5 +350,6 @@ Not yet built:
   share state across instances.
 - The client address comes straight from the connection. Behind a proxy, every client would share
   one address until trusted forwarding headers are configured.
-- Claude explanations will need to treat repository contents as untrusted input, since they can
-  carry prompt injection, and label their output as AI-generated.
+- AI Architect's evidence store has no size cap or expiry on disk yet. Clearing
+  `.cache/evidence` is safe: answers fall back to the graph, without excerpts or line numbers,
+  until the commit is analyzed again.

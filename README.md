@@ -48,6 +48,11 @@ Demo mode doesn't need the backend. To run only the frontend, use `make dev-fron
 | `make check` | Runs lint, typecheck, test and build |
 | `make format` | Auto-formats backend code |
 
+AI Architect's evaluations run with `make test`, against fixture repositories with known answers
+and a scripted model. To grade the real model on the same cases (billed), run
+`GITVERSE_RUN_LIVE_EVALS=1 .venv/bin/pytest tests/test_architect_live_eval.py` in `backend/`
+with `GITVERSE_ANTHROPIC_API_KEY` set.
+
 ## What works today
 
 - **Landing page** with a live 3D city rendered from the sample graph
@@ -71,21 +76,29 @@ Demo mode doesn't need the backend. To run only the frontend, use `make dev-fron
   history. Six representative commits are analyzed up front, and any other on request. Play
   through them, compare any two, or return to the latest. The city animates between snapshots:
   new files rise, removed ones sink, changed ones resize, and dependency arcs fade in or out.
+- **AI Architect** for analyzed repositories: ask questions such as "Where is authentication
+  implemented?", "What depends on this module?" or "Where could circular dependencies cause
+  problems?". Answers come from GitVerse's own evidence (files, declarations, import lines, graph
+  facts and short source excerpts), mark each claim as verified or inferred, admit when the
+  evidence doesn't cover the question, and are checked against the analysis so they can't name
+  files or dependencies that don't exist. The files they name light up in the city, with a button
+  to focus the camera, links to the inspector, and GitHub links to the exact lines. Uses Claude
+  through the backend; without an API key it shows the evidence alone.
 - **Stress-test cities** with generated data, at `/explore/demo/stress/100`, `/500` and `/1000`
 - **Deterministic city layout**: the same graph always builds the same city, whatever the input order
 - **Real repository analysis**: paste a public GitHub URL on the landing page. The backend fetches
   one commit, parses JS/JSX/TS/TSX with Tree-sitter, resolves imports, and builds a NetworkX graph
   with cycles, hubs, external packages and unresolved imports. Results are cached per commit.
-- **API**: `/health`, `/api/v1/meta`, and `/api/v1/analyses` with progress polling, limits, rate
-  limiting and concurrency control
+- **API**: `/health`, `/api/v1/meta`, `/api/v1/analyses` with progress polling, limits, rate
+  limiting and concurrency control, `/api/v1/history`, `/api/v1/compare` and
+  `/api/v1/architect/questions`
 
 ## What isn't built yet
 
 - Languages other than JavaScript and TypeScript
 - Workspace packages in monorepos (cross-package imports appear as external packages)
 - Running analysis in an isolated container
-- Git history and city evolution
-- Claude explanations
+- Embedding search and follow-up questions in AI Architect
 - PostgreSQL persistence
 
 The demo cities come from `frontend/src/features/demo`: hand-written data for a fictional project,
@@ -99,7 +112,11 @@ and generated stress-test data. The explorer always labels both as sample data. 
 | Template | Local file | Holds |
 | --- | --- | --- |
 | `frontend/.env.example` | `frontend/.env.local` | API URL |
-| `backend/.env.example` | `backend/.env` | CORS, analysis limits, concurrency, rate limit, cache folder, GitHub token |
+| `backend/.env.example` | `backend/.env` | CORS, analysis limits, concurrency, rate limits, cache folder, GitHub token, Anthropic API key |
+
+To turn on AI Architect's explanations, set `GITVERSE_ANTHROPIC_API_KEY` in `backend/.env`. The key
+is used only by the backend. The model (`claude-opus-5-5` by default) and its effort level are
+configurable there too.
 
 ## Repository layout
 
@@ -122,6 +139,12 @@ after fixing it.** Turbopack caches errors on disk. Stop the server and delete t
 ```bash
 rm -rf frontend/.next
 ```
+
+**AI Architect says "Evidence only".** The backend has no `GITVERSE_ANTHROPIC_API_KEY`, so it shows
+the evidence it found without an explanation. Set the key and restart the backend.
+
+**AI Architect quotes no source lines.** Its evidence lives in `backend/.cache/evidence`. If that
+folder was cleared, answers fall back to the graph alone until the commit is analyzed again.
 
 **Why does `frontend/package.json` override `magic-string`, and why is jsdom pinned to 25?** Newer
 versions of both need Node's `require(esm)` support, which Node 20.17 doesn't have. Both pins can go
