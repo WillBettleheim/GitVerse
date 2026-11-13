@@ -58,12 +58,16 @@ describe("demo labelling", () => {
 });
 
 describe("explorer interaction", () => {
-  it("shows a city overview with real counts before anything is selected", () => {
+  it("shows insights with real counts before anything is selected", () => {
     render(<ExplorerShell graph={graph} />);
     const details = screen.getByRole("complementary", { name: "Details" });
-    expect(within(details).getByText("City overview")).toBeInTheDocument();
-    expect(within(details).getByText(String(graph.files.length))).toBeInTheDocument();
-    expect(within(details).getByText(String(graph.edges.length))).toBeInTheDocument();
+    expect(within(details).getByRole("heading", { name: "Insights" })).toBeInTheDocument();
+    const stats = within(details.querySelector("dl")!);
+    const stat = (label: string) => stats.getByText(label).nextElementSibling;
+    expect(stat("Files analyzed")).toHaveTextContent(String(graph.files.length));
+    expect(stat("Dependency edges")).toHaveTextContent(String(graph.edges.length));
+    expect(stat("Dependency cycles")).toHaveTextContent("0");
+    expect(within(details).getByText("From sample data")).toBeInTheDocument();
   });
 
   it("selecting a file shows its imports, and following one navigates there", async () => {
@@ -75,7 +79,7 @@ describe("explorer interaction", () => {
     await user.click(within(files).getByRole("button", { name: /^useCart\.ts/ }));
     expect(within(details).getByText("src/hooks/useCart.ts")).toBeInTheDocument();
 
-    await user.click(within(details).getByRole("button", { name: "src/store/cartStore.ts" }));
+    await user.click(within(details).getByTitle("src/store/cartStore.ts"));
     expect(useExplorerStore.getState().selectedId).toBe("src/store/cartStore.ts");
     expect(within(details).getByRole("heading", { name: "cartStore.ts" })).toBeInTheDocument();
   });
@@ -84,7 +88,7 @@ describe("explorer interaction", () => {
     const user = userEvent.setup();
     render(<ExplorerShell graph={graph} />);
     const files = screen.getByRole("complementary", { name: "Files" });
-    const input = screen.getByRole("searchbox", { name: "Filter files" });
+    const input = screen.getByRole("searchbox", { name: "Search files" });
 
     await user.type(input, "pricing");
     expect(within(files).getByRole("button", { name: /^pricingEngine\.ts/ })).toBeInTheDocument();
@@ -123,7 +127,9 @@ describe("explorer interaction", () => {
   it("announces selections for screen readers", () => {
     render(<ExplorerShell graph={graph} />);
     act(() => useExplorerStore.getState().select("src/hooks/useCart.ts"));
-    expect(screen.getByText(/^Selected src\/hooks\/useCart\.ts\. Imports 1 files\./)).toBeInTheDocument();
+    expect(
+      screen.getByText(/^Selected src\/hooks\/useCart\.ts\. Imports 1 files\./),
+    ).toBeInTheDocument();
   });
 
   it("marks key modules in the file list", () => {
@@ -177,7 +183,7 @@ describe("keyboard shortcuts", () => {
   it("doesn't fire while typing in the filter", async () => {
     const user = userEvent.setup();
     render(<ExplorerShell graph={graph} />);
-    await user.type(screen.getByRole("searchbox", { name: "Filter files" }), "fr");
+    await user.type(screen.getByRole("searchbox", { name: "Search files" }), "fr");
     expect(useExplorerStore.getState().cameraCommand.count).toBe(0);
   });
 });
@@ -238,7 +244,7 @@ describe("large file lists", () => {
     const user = userEvent.setup();
     render(<ExplorerShell graph={large} />);
     const files = screen.getByRole("complementary", { name: "Files" });
-    await user.click(within(files).getAllByRole("button", { expanded: false })[0]);
+    await user.click(within(files).getByRole("button", { name: /^src\/api\/routes\/part0/ }));
     expect(within(files).getAllByRole("listitem").length).toBeGreaterThan(0);
   });
 
@@ -254,7 +260,7 @@ describe("large file lists", () => {
     const user = userEvent.setup();
     render(<ExplorerShell graph={large} />);
     const files = screen.getByRole("complementary", { name: "Files" });
-    await user.type(screen.getByRole("searchbox", { name: "Filter files" }), large.files[500].path);
+    await user.type(screen.getByRole("searchbox", { name: "Search files" }), large.files[500].path);
     expect(within(files).getByTitle(large.files[500].path)).toBeInTheDocument();
   });
 });
@@ -262,14 +268,25 @@ describe("large file lists", () => {
 describe("groupFiles", () => {
   const city = generateCity(graph);
 
-  it("keeps every file when there is no query", () => {
-    const total = groupFiles(city, "").reduce((sum, g) => sum + g.buildings.length, 0);
-    expect(total).toBe(graph.files.length);
+  it("keeps every file, folders in alphabetical order, without search results", () => {
+    const groups = groupFiles(city, null);
+    expect(groups.reduce((sum, g) => sum + g.buildings.length, 0)).toBe(graph.files.length);
+    const labels = groups.map((g) => g.label);
+    expect(labels).toEqual([...labels].sort());
   });
 
-  it("matches case-insensitively on the whole path", () => {
-    const groups = groupFiles(city, "SERVER/DB");
-    expect(groups.map((g) => g.id)).toEqual(["src/server/db"]);
+  it("keeps only results, ordering folders and files by best match", () => {
+    const results = [
+      { id: "src/server/db/schema.ts" },
+      { id: "src/app/page.tsx" },
+      { id: "src/server/db/client.ts" },
+    ];
+    const groups = groupFiles(city, results);
+    expect(groups.map((g) => g.id)).toEqual(["src/server/db", "src/app"]);
+    expect(groups[0].buildings.map((b) => b.id)).toEqual([
+      "src/server/db/schema.ts",
+      "src/server/db/client.ts",
+    ]);
   });
 });
 
@@ -289,5 +306,178 @@ describe("ApiStatus", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false }));
     render(<ApiStatus />);
     await waitFor(() => expect(screen.getByText("API offline")).toBeInTheDocument());
+  });
+});
+
+describe("selection stays in sync everywhere", () => {
+  it("a selection made in the city updates the list, inspector, breadcrumbs and announcer", () => {
+    render(<ExplorerShell graph={graph} />);
+    // The canvas selects through the store, exactly like this.
+    act(() => useExplorerStore.getState().select("src/server/db/schema.ts"));
+
+    const files = screen.getByRole("complementary", { name: "Files" });
+    const details = screen.getByRole("complementary", { name: "Details" });
+    expect(within(files).getByTitle("src/server/db/schema.ts")).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
+    expect(within(details).getByRole("heading", { name: "schema.ts" })).toBeInTheDocument();
+    const crumbs = within(details).getByRole("navigation", { name: "Breadcrumb" });
+    expect(within(crumbs).getByText("schema.ts")).toHaveAttribute("aria-current", "page");
+    expect(screen.getByText(/^Selected src\/server\/db\/schema\.ts\./)).toBeInTheDocument();
+  });
+
+  it("a selection made in the list reaches the store the city reads", async () => {
+    const user = userEvent.setup();
+    render(<ExplorerShell graph={graph} />);
+    const files = screen.getByRole("complementary", { name: "Files" });
+    await user.click(within(files).getByRole("button", { name: /^Header\.tsx/ }));
+    expect(useExplorerStore.getState().selectedId).toBe("src/components/Header.tsx");
+  });
+
+  it("a selection made in the graph view updates the inspector", async () => {
+    const user = userEvent.setup();
+    useExplorerStore.getState().select("src/hooks/useCart.ts");
+    useExplorerStore.getState().setMainView("graph");
+    render(<ExplorerShell graph={graph} />);
+    const view = screen.getByRole("region", { name: "Dependency graph" });
+    await user.click(within(view).getByTitle("src/store/cartStore.ts"));
+    expect(useExplorerStore.getState().selectedId).toBe("src/store/cartStore.ts");
+    const details = screen.getByRole("complementary", { name: "Details" });
+    expect(within(details).getByRole("heading", { name: "cartStore.ts" })).toBeInTheDocument();
+  });
+});
+
+describe("file inspector", () => {
+  const details = () => screen.getByRole("complementary", { name: "Details" });
+  const stat = (label: string) => within(details()).getByText(label).nextElementSibling;
+
+  it("shows the file's measured values and honest gaps for sample data", () => {
+    useExplorerStore.getState().select("src/store/cartStore.ts");
+    render(<ExplorerShell graph={graph} />);
+    expect(within(details()).getByText("src/store/cartStore.ts")).toBeInTheDocument();
+    expect(stat("Lines of code")).toHaveTextContent("168");
+    expect(stat("Complexity")).toHaveTextContent("15");
+    expect(stat("Imports")).toHaveTextContent("2");
+    expect(stat("Imported by")).toHaveTextContent("2");
+    // Sample data has no source, so these aren't measured and say so instead of guessing.
+    expect(stat("Functions")).toHaveTextContent("—");
+    expect(stat("Classes")).toHaveTextContent("—");
+    expect(within(details()).getByText(/No source link: this is sample data/)).toBeInTheDocument();
+  });
+
+  it("breadcrumb folders narrow the search and return to the overview", async () => {
+    const user = userEvent.setup();
+    useExplorerStore.getState().select("src/server/db/schema.ts");
+    render(<ExplorerShell graph={graph} />);
+    const crumbs = within(details()).getByRole("navigation", { name: "Breadcrumb" });
+    await user.click(within(crumbs).getByRole("button", { name: "server" }));
+    expect(useExplorerStore.getState().selectedId).toBeNull();
+    expect(useExplorerStore.getState().filters.folder).toBe("src/server");
+    expect(within(details()).getByRole("heading", { name: "Insights" })).toBeInTheDocument();
+    const files = screen.getByRole("complementary", { name: "Files" });
+    expect(within(files).getByRole("status")).toHaveTextContent(/files match/);
+    expect(within(files).queryByTitle("src/app/page.tsx")).not.toBeInTheDocument();
+  });
+});
+
+describe("dependency explorer", () => {
+  const details = () => screen.getByRole("complementary", { name: "Details" });
+
+  it("lists direct imports and importers with their direction", () => {
+    useExplorerStore.getState().select("src/hooks/useCart.ts");
+    render(<ExplorerShell graph={graph} />);
+    const section = within(details()).getByRole("region", { name: "Dependencies" });
+    expect(within(section).getByRole("heading", { name: /Depends on/ })).toHaveTextContent("1");
+    expect(within(section).getByTitle("src/store/cartStore.ts")).toHaveTextContent("→");
+    expect(within(section).getByTitle("src/app/cart/page.tsx")).toHaveTextContent("←");
+  });
+
+  it("follows more hops when the depth is raised", async () => {
+    const user = userEvent.setup();
+    useExplorerStore.getState().select("src/hooks/useCart.ts");
+    render(<ExplorerShell graph={graph} />);
+    const section = within(details()).getByRole("region", { name: "Dependencies" });
+    expect(within(section).queryByTitle("src/lib/format.ts")).not.toBeInTheDocument();
+
+    await user.click(within(section).getByRole("button", { name: "2" }));
+    expect(useExplorerStore.getState().depth).toBe(2);
+    expect(within(section).getAllByText("2 hops").length).toBeGreaterThan(0);
+    // useCart → cartStore → format
+    expect(within(section).getByTitle("src/lib/format.ts")).toBeInTheDocument();
+  });
+
+  it("shows one direction only when asked", async () => {
+    const user = userEvent.setup();
+    useExplorerStore.getState().select("src/hooks/useCart.ts");
+    render(<ExplorerShell graph={graph} />);
+    const section = within(details()).getByRole("region", { name: "Dependencies" });
+    await user.click(within(section).getByRole("button", { name: "Imports →" }));
+    expect(
+      within(section).queryByRole("heading", { name: /Depended on by/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("opens the graph view and returns to the city", async () => {
+    const user = userEvent.setup();
+    useExplorerStore.getState().select("src/hooks/useCart.ts");
+    render(<ExplorerShell graph={graph} />);
+    await user.click(within(details()).getByRole("button", { name: "Open as graph" }));
+    const view = screen.getByRole("region", { name: "Dependency graph" });
+    expect(within(view).getByTitle("src/hooks/useCart.ts")).toHaveAttribute("aria-current", "true");
+    await user.keyboard("{Escape}");
+    expect(useExplorerStore.getState().mainView).toBe("city");
+  });
+});
+
+describe("search and filters", () => {
+  it("narrows the list by language and metrics, and counts the matches", async () => {
+    const user = userEvent.setup();
+    render(<ExplorerShell graph={graph} />);
+    const files = screen.getByRole("complementary", { name: "Files" });
+    await user.click(within(files).getByRole("button", { name: /^Filters( \(\d+\))? [▴▾]$/ }));
+    await user.selectOptions(within(files).getByLabelText("Language"), "json");
+    expect(within(files).getByRole("status")).toHaveTextContent(
+      `1 of ${graph.files.length} files match`,
+    );
+    expect(within(files).getByTitle("package.json")).toBeInTheDocument();
+
+    await user.selectOptions(within(files).getByLabelText("Language"), "__all");
+    await user.type(within(files).getByLabelText("Min importers"), "6");
+    const status = within(files).getByRole("status").textContent ?? "";
+    expect(Number(status.split(" ")[0])).toBeGreaterThan(0);
+    expect(within(files).getByTitle("src/components/Button.tsx")).toBeInTheDocument();
+
+    await user.click(within(files).getByRole("button", { name: "Clear" }));
+    expect(within(files).queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("explains an empty result for filters without a query", async () => {
+    const user = userEvent.setup();
+    render(<ExplorerShell graph={graph} />);
+    const files = screen.getByRole("complementary", { name: "Files" });
+    await user.click(within(files).getByRole("button", { name: /^Filters( \(\d+\))? [▴▾]$/ }));
+    await user.type(within(files).getByLabelText("Min lines"), "99999");
+    expect(within(files).getByText("No files match these filters.")).toBeInTheDocument();
+  });
+});
+
+describe("insights dashboard", () => {
+  it("ranks real files and lets you jump to one", async () => {
+    const user = userEvent.setup();
+    render(<ExplorerShell graph={graph} />);
+    const details = screen.getByRole("complementary", { name: "Details" });
+    expect(within(details).getByText("621 lines")).toBeInTheDocument();
+    expect(within(details).getByText("67 paths")).toBeInTheDocument();
+    await user.click(within(details).getAllByTitle("src/server/services/pricingEngine.ts")[0]);
+    expect(useExplorerStore.getState().selectedId).toBe("src/server/services/pricingEngine.ts");
+  });
+
+  it("filters the city to an area from the folder distribution", async () => {
+    const user = userEvent.setup();
+    render(<ExplorerShell graph={graph} />);
+    const details = screen.getByRole("complementary", { name: "Details" });
+    await user.click(within(details).getByRole("button", { name: /^src\/server/ }));
+    expect(useExplorerStore.getState().filters.folder).toBe("src/server");
   });
 });

@@ -102,10 +102,26 @@ describe("RepoInputForm", () => {
 describe("AnalysisExplorer", () => {
   it("shows progress, then the city built from the real analysis", async () => {
     mockApi({
-      "/api/v1/analyses": [() => json(job({ status: "queued", progress: { stage: "queued", filesTotal: 0, filesParsed: 0 }, repository: null }), 202)],
+      "/api/v1/analyses": [
+        () =>
+          json(
+            job({
+              status: "queued",
+              progress: { stage: "queued", filesTotal: 0, filesParsed: 0 },
+              repository: null,
+            }),
+            202,
+          ),
+      ],
       [`/api/v1/analyses/${"a".repeat(32)}`]: [
         () => json(job()),
-        () => json(job({ status: "complete", progress: { stage: "complete", filesTotal: 12, filesParsed: 12 } })),
+        () =>
+          json(
+            job({
+              status: "complete",
+              progress: { stage: "complete", filesTotal: 12, filesParsed: 12 },
+            }),
+          ),
       ],
       "/graph": [() => json(sample)],
     });
@@ -134,7 +150,10 @@ describe("AnalysisExplorer", () => {
             job({
               status: "failed",
               progress: { stage: "failed", filesTotal: 0, filesParsed: 0 },
-              error: { code: "no_supported_files", message: "No JavaScript or TypeScript source files were found to analyze." },
+              error: {
+                code: "no_supported_files",
+                message: "No JavaScript or TypeScript source files were found to analyze.",
+              },
             }),
           ),
       ],
@@ -149,7 +168,10 @@ describe("AnalysisExplorer", () => {
   it("tells the user when they've been rate limited, and when to retry", async () => {
     mockApi({
       "/api/v1/analyses": [
-        () => json({ detail: "Too many analysis requests. Wait a minute and try again." }, 429, { "Retry-After": "42" }),
+        () =>
+          json({ detail: "Too many analysis requests. Wait a minute and try again." }, 429, {
+            "Retry-After": "42",
+          }),
       ],
     });
     render(<AnalysisExplorer owner="acme" name="web-app" />);
@@ -195,14 +217,17 @@ describe("analysis details in the inspector", () => {
     expect(within(details).getByText("../../outside")).toBeInTheDocument();
     expect(within(details).getByText("react")).toBeInTheDocument();
     expect(within(details).getByText(/Node built-ins: fs, path/)).toBeInTheDocument();
-    expect(within(details).getByText("No files depend on each other in a loop.")).toBeInTheDocument();
+    expect(
+      within(details).getByText("No files depend on each other in a loop."),
+    ).toBeInTheDocument();
     expect(within(details).getByText(/1 files had syntax errors/)).toBeInTheDocument();
   });
 
   it("shows measured metrics for a selected file", async () => {
     const user = userEvent.setup();
     const details = await renderComplete();
-    await user.click(within(details).getAllByRole("button", { name: "src/app.tsx" })[0]);
+    const files = screen.getByRole("complementary", { name: "Files" });
+    await user.click(within(files).getByRole("button", { name: /^app\.tsx/ }));
     expect(within(details).getByRole("heading", { name: "app.tsx" })).toBeInTheDocument();
     const value = (label: string) => within(details).getByText(label).nextElementSibling;
     expect(value("Functions")).toHaveTextContent("2");
