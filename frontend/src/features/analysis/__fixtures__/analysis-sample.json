@@ -22,7 +22,8 @@
         "externalImports": 0,
         "unresolvedImports": 0,
         "parseError": false
-      }
+      },
+      "blob": "ad73a11da3f0d59e4d63931f2668a316e0edb5b7"
     },
     {
       "id": "src/app.tsx",
@@ -40,7 +41,8 @@
         "externalImports": 0,
         "unresolvedImports": 0,
         "parseError": false
-      }
+      },
+      "blob": "8d328ec754e9e0fa1f92ac7241c69eae50a816ed"
     },
     {
       "id": "src/broken.ts",
@@ -58,7 +60,8 @@
         "externalImports": 0,
         "unresolvedImports": 0,
         "parseError": true
-      }
+      },
+      "blob": "649d305aae4ba9b7c413bfdfb871e8fbb0412053"
     },
     {
       "id": "src/component.jsx",
@@ -76,7 +79,8 @@
         "externalImports": 0,
         "unresolvedImports": 0,
         "parseError": false
-      }
+      },
+      "blob": "bede2c79d66528e93599ddff3496429eaa3eb4a1"
     },
     {
       "id": "src/decl-user.ts",
@@ -94,7 +98,8 @@
         "externalImports": 0,
         "unresolvedImports": 1,
         "parseError": false
-      }
+      },
+      "blob": "b9287d92abb5530aed10a10464e1bdb8bd78d976"
     },
     {
       "id": "src/esm.ts",
@@ -112,7 +117,8 @@
         "externalImports": 0,
         "unresolvedImports": 0,
         "parseError": false
-      }
+      },
+      "blob": "2799cda07f2181f8ce9f98d9e1336855341969fb"
     },
     {
       "id": "src/index.ts",
@@ -130,7 +136,8 @@
         "externalImports": 2,
         "unresolvedImports": 1,
         "parseError": false
-      }
+      },
+      "blob": "3f567b2247f3d1a3b6659e0878f4e40d5437c0d5"
     },
     {
       "id": "src/lazy.ts",
@@ -148,7 +155,8 @@
         "externalImports": 0,
         "unresolvedImports": 0,
         "parseError": false
-      }
+      },
+      "blob": "aef22247d75263ebcd619ae575d94355aedb3b48"
     },
     {
       "id": "src/legacy.js",
@@ -166,7 +174,8 @@
         "externalImports": 0,
         "unresolvedImports": 0,
         "parseError": false
-      }
+      },
+      "blob": "e5f5598cf16002ef5861f26712733fdac0e819e8"
     },
     {
       "id": "src/types.ts",
@@ -184,7 +193,8 @@
         "externalImports": 0,
         "unresolvedImports": 0,
         "parseError": false
-      }
+      },
+      "blob": "10db391ca2b00b61a533be5194a03ed7af644055"
     },
     {
       "id": "src/utils/helper.ts",
@@ -202,7 +212,8 @@
         "externalImports": 3,
         "unresolvedImports": 0,
         "parseError": false
-      }
+      },
+      "blob": "9195e100a3977b4be6373d210097133ab1606b3a"
     },
     {
       "id": "src/utils/index.ts",
@@ -220,7 +231,8 @@
         "externalImports": 0,
         "unresolvedImports": 0,
         "parseError": false
-      }
+      },
+      "blob": "4d81528a90bed15deb1161039ba3b5f41d34810b"
     }
   ],
   "edges": [
@@ -305,7 +317,7 @@
       "primaryLanguage": "TypeScript",
       "archived": false
     },
-    "analyzerVersion": "1",
+    "analyzerVersion": "2",
     "analyzedAt": "2026-01-01T00:00:00+00:00",
     "languages": {
       "javascript": 2,

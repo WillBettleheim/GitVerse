@@ -12,7 +12,7 @@ from app.analysis.archive import read_snapshot
 from app.analysis.errors import AnalysisError
 from app.analysis.graph import build_code_graph, resolve_imports
 from app.analysis.parser import parse_source
-from app.analysis.pipeline import analyze_snapshot
+from app.analysis.pipeline import analyze_snapshot, git_blob_sha
 from app.analysis.resolver import ModuleResolver
 from app.core.config import AnalysisLimits
 from app.schemas.graph import CodeGraph, RepositoryInfo
@@ -209,6 +209,7 @@ def test_frontend_sample_matches_current_analyzer_output() -> None:
         resolve_imports(parsed, resolver),
         snapshot.skipped,
         analyzed_at=datetime(2026, 1, 1, tzinfo=UTC),
+        blobs={path: git_blob_sha(content) for path, content in snapshot.files.items()},
     )
     expected = (
         json.dumps(json.loads(graph.model_dump_json(by_alias=True, exclude_none=True)), indent=2)
