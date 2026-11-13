@@ -12,6 +12,7 @@ const CLICK_DRAG_TOLERANCE_PX = 4;
 const CYAN = new THREE.Color("#22d3ee");
 const VIOLET = new THREE.Color("#a78bfa");
 const WHITE = new THREE.Color("#ffffff");
+const AMBER = new THREE.Color("#fbbf24");
 
 /** Writes the colour a building gets in a highlight state. Reuses `out` to avoid allocation. */
 export function applyHighlightColor(out: THREE.Color, base: string, state: HighlightState) {
@@ -25,6 +26,14 @@ export function applyHighlightColor(out: THREE.Color, base: string, state: Highl
       return out.lerp(CYAN, 0.7).multiplyScalar(1.25);
     case "dependent":
       return out.lerp(VIOLET, 0.7).multiplyScalar(1.25);
+    case "dependency-far":
+      return out.lerp(CYAN, 0.45).multiplyScalar(0.7);
+    case "dependent-far":
+      return out.lerp(VIOLET, 0.45).multiplyScalar(0.7);
+    case "cycle":
+      return out.lerp(AMBER, 0.75).multiplyScalar(1.3);
+    case "match":
+      return out.lerp(WHITE, 0.3).multiplyScalar(1.45);
     case "dimmed":
       return out.multiplyScalar(0.14);
     default:
