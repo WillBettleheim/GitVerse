@@ -1,0 +1,130 @@
+{
+  "repository": "acme/repo",
+  "base": {
+    "sha": "2796b1d5cda4f713e0a1c766d96011b74e48c3c5",
+    "committedAt": "2024-01-01T10:00:00Z",
+    "message": "Initial structure",
+    "author": "Fixture Author"
+  },
+  "head": {
+    "sha": "6ca61d432abe4c72accea0733050838c8791f3b8",
+    "committedAt": "2024-03-01T10:00:00Z",
+    "message": "Move util to helpers and drop c",
+    "author": "Fixture Author"
+  },
+  "files": {
+    "added": [],
+    "removed": [],
+    "modified": [
+      {
+        "path": "src/b.ts",
+        "before": {
+          "loc": 1,
+          "complexity": 1,
+          "incoming": 1,
+          "outgoing": 0
+        },
+        "after": {
+          "loc": 2,
+          "complexity": 1,
+          "incoming": 1,
+          "outgoing": 1
+        }
+      }
+    ],
+    "renamed": [
+      {
+        "from": "src/util.ts",
+        "to": "src/helpers.ts",
+        "contentChanged": false
+      }
+    ],
+    "unchanged": 1,
+    "addedCount": 0,
+    "removedCount": 0,
+    "modifiedCount": 1,
+    "renamedCount": 1
+  },
+  "edges": {
+    "added": [
+      {
+        "source": "src/b.ts",
+        "target": "src/helpers.ts"
+      }
+    ],
+    "removed": [],
+    "unchanged": 1,
+    "addedCount": 1,
+    "removedCount": 0
+  },
+  "metrics": [
+    {
+      "name": "files",
+      "label": "Files",
+      "before": 3.0,
+      "after": 3.0,
+      "delta": 0.0
+    },
+    {
+      "name": "edges",
+      "label": "Dependency edges",
+      "before": 1.0,
+      "after": 2.0,
+      "delta": 1.0
+    },
+    {
+      "name": "loc",
+      "label": "Lines of code",
+      "before": 4.0,
+      "after": 5.0,
+      "delta": 1.0
+    },
+    {
+      "name": "cycles",
+      "label": "Dependency cycles",
+      "before": 0.0,
+      "after": 0.0,
+      "delta": 0.0
+    },
+    {
+      "name": "filesInCycles",
+      "label": "Files in cycles",
+      "before": 0.0,
+      "after": 0.0,
+      "delta": 0.0
+    },
+    {
+      "name": "averageComplexity",
+      "label": "Average complexity",
+      "before": 1.0,
+      "after": 1.0,
+      "delta": 0.0
+    },
+    {
+      "name": "maxIncoming",
+      "label": "Most importers of one file",
+      "before": 1.0,
+      "after": 1.0,
+      "delta": 0.0
+    },
+    {
+      "name": "externalPackages",
+      "label": "External packages",
+      "before": 0.0,
+      "after": 0.0,
+      "delta": 0.0
+    },
+    {
+      "name": "unresolvedImports",
+      "label": "Unresolved imports",
+      "before": 0.0,
+      "after": 0.0,
+      "delta": 0.0
+    }
+  ],
+  "renameDetection": {
+    "method": "content",
+    "complete": false,
+    "note": "GitHub's comparison wasn't available, so only moves with identical content were detected. A file renamed and edited in the same change appears as removed and added."
+  }
+}
