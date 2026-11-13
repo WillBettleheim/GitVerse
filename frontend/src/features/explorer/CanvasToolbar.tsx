@@ -8,7 +8,14 @@ const button =
 
 const countFormat = new Intl.NumberFormat("en-US");
 
-export function CanvasToolbar({ omittedFileCount = 0 }: { omittedFileCount?: number }) {
+export function CanvasToolbar({
+  omittedFileCount = 0,
+  raised = false,
+}: {
+  omittedFileCount?: number;
+  /** Sits above a timeline along the bottom. */
+  raised?: boolean;
+}) {
   const showConnections = useExplorerStore((s) => s.showConnections);
   const cinematic = useExplorerStore((s) => s.cinematic);
   const renderInfo = useExplorerStore((s) => s.renderInfo);
@@ -21,7 +28,9 @@ export function CanvasToolbar({ omittedFileCount = 0 }: { omittedFileCount?: num
   const hiddenConnections = renderInfo && renderInfo.shownConnections < renderInfo.totalConnections;
 
   return (
-    <div className="pointer-events-none absolute inset-x-3 bottom-3 flex flex-wrap items-end justify-between gap-2">
+    <div
+      className={`pointer-events-none absolute inset-x-3 flex flex-wrap items-end justify-between gap-2 ${raised ? "bottom-[8.5rem]" : "bottom-3"}`}
+    >
       <div className="pointer-events-auto flex flex-wrap gap-2">
         <button
           type="button"

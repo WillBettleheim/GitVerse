@@ -1,5 +1,6 @@
 "use client";
 
+import { SnapshotPanel } from "@/features/timetravel/SnapshotPanel";
 import { useExplorerData } from "./explorer-data";
 import { FileInspector } from "./panel/FileInspector";
 import { InsightsDashboard } from "./panel/InsightsDashboard";
@@ -10,5 +11,11 @@ export function Inspector() {
   const { files } = useExplorerData();
   const selectedId = useExplorerStore((s) => s.selectedId);
   const file = selectedId ? files.get(selectedId) : undefined;
-  return file ? <FileInspector key={file.id} file={file} /> : <InsightsDashboard />;
+  if (file) return <FileInspector key={file.id} file={file} />;
+  return (
+    <>
+      <SnapshotPanel />
+      <InsightsDashboard />
+    </>
+  );
 }

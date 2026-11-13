@@ -2,6 +2,10 @@
 
 import { Logo } from "@/components/Logo";
 import { ExplorerShell } from "@/features/explorer/ExplorerShell";
+import { useTimeTravelStore } from "@/features/timetravel/store";
+import { TimelineBar } from "@/features/timetravel/TimelineBar";
+import { useTimeTravel } from "@/features/timetravel/use-time-travel";
+import type { CodeGraph } from "@/lib/graph/schema";
 import { AnalysisFailure, AnalysisProgress } from "./AnalysisStatus";
 import { useAnalysis } from "./use-analysis";
 
@@ -10,27 +14,7 @@ export function AnalysisExplorer({ owner, name }: { owner: string; name: string 
   const { state, retry } = useAnalysis(repository);
 
   if (state.phase === "complete") {
-    const info = state.graph.analysis?.repository;
-    return (
-      <ExplorerShell
-        key={state.job.id}
-        graph={state.graph}
-        headerSlot={
-          info && (
-            <a
-              href={`${info.url}/tree/${info.commitSha}`}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="hidden shrink-0 font-mono text-[11px] text-faint hover:text-text md:inline"
-              title="The exact commit that was analyzed"
-            >
-              @{info.commitSha.slice(0, 7)}
-              {state.job.cached && " · cached"}
-            </a>
-          )
-        }
-      />
-    );
+    return <TimeTravelExplorer key={state.job.id} latest={state.graph} cached={state.job.cached} />;
   }
 
   return (
@@ -53,5 +37,35 @@ export function AnalysisExplorer({ owner, name }: { owner: string; name: string 
         />
       )}
     </div>
+  );
+}
+
+/** The explorer for a real analysis, with time travel through its history. */
+function TimeTravelExplorer({ latest, cached }: { latest: CodeGraph; cached: boolean }) {
+  const controls = useTimeTravel(latest);
+  const historical = useTimeTravelStore((s) =>
+    s.viewing ? (s.snapshots[s.viewing]?.graph ?? null) : null,
+  );
+  const graph = historical ?? latest;
+  const info = graph.analysis?.repository;
+  return (
+    <ExplorerShell
+      graph={graph}
+      timeline={<TimelineBar controls={controls} />}
+      headerSlot={
+        info && (
+          <a
+            href={`${info.url}/tree/${info.commitSha}`}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="hidden shrink-0 font-mono text-[11px] text-faint hover:text-text md:inline"
+            title="The exact commit on screen"
+          >
+            @{info.commitSha.slice(0, 7)}
+            {historical ? " · historical" : cached ? " · cached" : ""}
+          </a>
+        )
+      }
+    />
   );
 }

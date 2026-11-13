@@ -32,13 +32,15 @@ interface ExplorerShellProps {
   graph: CodeGraph;
   /** Extra header content, such as the demo dataset switcher. */
   headerSlot?: ReactNode;
+  /** A bar along the bottom of the city, such as the time-travel timeline. */
+  timeline?: ReactNode;
 }
 
 /**
  * Subscribes to no selection state itself. The canvas, list and inspector each subscribe to what
  * they need, so a hover doesn't re-render the whole page.
  */
-export function ExplorerShell({ graph, headerSlot }: ExplorerShellProps) {
+export function ExplorerShell({ graph, headerSlot, timeline }: ExplorerShellProps) {
   const city = useMemo(() => generateCity(graph), [graph]);
   const adjacency = useMemo(() => buildAdjacency(graph), [graph]);
   const reset = useExplorerStore((s) => s.reset);
@@ -67,7 +69,8 @@ export function ExplorerShell({ graph, headerSlot }: ExplorerShellProps) {
           <main className="relative order-1 h-[58svh] shrink-0 lg:order-2 lg:h-auto">
             <LazyCityCanvas graph={graph} city={city} mode="explorer" fallback={WEBGL_FALLBACK} />
             <MainOverlay />
-            <CanvasToolbar omittedFileCount={city.omittedFileCount} />
+            <CanvasToolbar omittedFileCount={city.omittedFileCount} raised={Boolean(timeline)} />
+            {timeline}
           </main>
 
           <aside
