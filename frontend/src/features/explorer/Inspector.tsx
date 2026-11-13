@@ -1,9 +1,10 @@
 "use client";
 
 import { useMemo } from "react";
+import { AnalysisOverview, FileMetricsPanel } from "@/features/analysis/AnalysisOverview";
 import type { Building, CityLayout } from "@/lib/city/layout";
 import type { Adjacency } from "@/lib/graph/queries";
-import type { CodeGraph, FileNode } from "@/lib/graph/schema";
+import type { AnalysisSummary, CodeGraph, FileNode } from "@/lib/graph/schema";
 import { useExplorerStore } from "./store";
 
 const countFormat = new Intl.NumberFormat("en-US");
@@ -20,7 +21,12 @@ export function Inspector({ graph, city, adjacency }: InspectorProps) {
   const buildings = useMemo(() => new Map(city.buildings.map((b) => [b.id, b])), [city.buildings]);
   const file = selectedId ? files.get(selectedId) : undefined;
   return file ? (
-    <FileDetails file={file} building={buildings.get(file.id)} adjacency={adjacency} />
+    <FileDetails
+      file={file}
+      building={buildings.get(file.id)}
+      adjacency={adjacency}
+      analysis={graph.analysis}
+    />
   ) : (
     <CityOverview graph={graph} city={city} />
   );
@@ -55,6 +61,8 @@ function CityOverview({ graph, city }: { graph: CodeGraph; city: CityLayout }) {
         <Stat label="Connections (imports)" value={countFormat.format(city.connections.length)} />
         <Stat label="Lines of code" value={countFormat.format(totalLoc)} />
       </dl>
+
+      {graph.analysis && <AnalysisOverview analysis={graph.analysis} />}
 
       <h3 className="mt-6 text-sm font-medium">How to read the city</h3>
       <ul className="mt-2 space-y-1.5 text-sm leading-relaxed text-muted">
@@ -91,10 +99,12 @@ function FileDetails({
   file,
   building,
   adjacency,
+  analysis,
 }: {
   file: FileNode;
   building: Building | undefined;
   adjacency: Adjacency;
+  analysis: AnalysisSummary | undefined;
 }) {
   const select = useExplorerStore((s) => s.select);
   return (
@@ -117,13 +127,14 @@ function FileDetails({
         <p className="mt-2 text-xs text-amber">Not drawn in the city, because of the size limit.</p>
       )}
       <dl className="mt-4 grid grid-cols-3 gap-3">
-        <Stat label="Lines" value={file.loc} />
+        <Stat label="Lines of code" value={file.loc} />
         <Stat label="Complexity" value={file.complexity} />
         <div>
           <dt className="text-xs text-faint">Type</dt>
           <dd className="mt-1.5 truncate font-mono text-sm">{building?.category ?? file.language}</dd>
         </div>
       </dl>
+      <FileMetricsPanel file={file} analysis={analysis} />
       <LinkList
         title="Imports"
         accent="bg-cyan"
