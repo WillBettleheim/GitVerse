@@ -5,9 +5,8 @@
 GitVerse turns a code repository into a 3D city. Folders become districts, files become buildings,
 complexity shapes the skyline, and imports become glowing connections.
 
-> **Status: early foundation.** The explorer and city renderer work, but only with a clearly
-> labelled sample graph. Analyzing real repositories isn't built yet: `POST /api/v1/analyses`
-> validates its input and then returns `501 Not Implemented`.
+> **Status:** analyzes public JavaScript and TypeScript repositories from GitHub and builds a city
+> from the real dependency graph. A clearly labelled demo city works without the backend.
 
 ## Quick start
 
@@ -61,12 +60,17 @@ Demo mode doesn't need the backend. To run only the frontend, use `make dev-fron
   - Respects reduced motion, and adapts quality to the device
 - **Stress-test cities** with generated data, at `/explore/demo/stress/100`, `/500` and `/1000`
 - **Deterministic city layout**: the same graph always builds the same city, whatever the input order
-- **API**: `/health`, `/api/v1/meta`, repository reference validation and request size limits
+- **Real repository analysis**: paste a public GitHub URL on the landing page. The backend fetches
+  one commit, parses JS/JSX/TS/TSX with Tree-sitter, resolves imports, and builds a NetworkX graph
+  with cycles, hubs, external packages and unresolved imports. Results are cached per commit.
+- **API**: `/health`, `/api/v1/meta`, and `/api/v1/analyses` with progress polling, limits, rate
+  limiting and concurrency control
 
 ## What isn't built yet
 
-- Cloning or fetching repositories
-- Tree-sitter parsing and NetworkX graph building
+- Languages other than JavaScript and TypeScript
+- Workspace packages in monorepos (cross-package imports appear as external packages)
+- Running analysis in an isolated container
 - Git history and city evolution
 - Claude explanations
 - PostgreSQL persistence
@@ -82,7 +86,7 @@ and generated stress-test data. The explorer always labels both as sample data. 
 | Template | Local file | Holds |
 | --- | --- | --- |
 | `frontend/.env.example` | `frontend/.env.local` | API URL |
-| `backend/.env.example` | `backend/.env` | CORS origins, request and analysis limits, future API keys |
+| `backend/.env.example` | `backend/.env` | CORS, analysis limits, concurrency, rate limit, cache folder, GitHub token |
 
 ## Repository layout
 
@@ -94,6 +98,10 @@ scripts/    Development scripts
 ```
 
 ## Troubleshooting
+
+**"GitHub's rate limit for this server has been reached."** Without a token, GitHub allows 60 API
+requests an hour, and each analysis uses two. Set `GITVERSE_GITHUB_TOKEN` in `backend/.env` to a
+token with no scopes (read-only public access) to raise it to 5,000.
 
 **A Tailwind or `magic-string` error mentions `require() of ES Module`, or an old error persists
 after fixing it.** Turbopack caches errors on disk. Stop the server and delete the cache:

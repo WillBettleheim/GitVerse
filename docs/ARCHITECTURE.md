@@ -6,15 +6,15 @@ Status markers: **[built]** exists and is tested. **[planned]** is design only.
 
 ```
                  ┌───────────────────────── Next.js frontend ───────────────────────┐
- demo-graph.json │                                                                  │
+ demo + analysis │                                                                  │
  [built] ───────▶│  CodeGraph ──▶ generateCity() ──▶ CityLayout ──▶ React Three     │
                  │  (validated)    pure, deterministic   plain data     Fiber scene │
                  └───────▲──────────────────────────────────────────────────────────┘
                          │ CodeGraph JSON  (same contract)
                  ┌───────┴──────────────── FastAPI backend ─────────────────────────┐
-                 │ repo ref validation [built] ──▶ sandboxed clone [planned]        │
-                 │ ──▶ Tree-sitter parse [planned] ──▶ NetworkX graph [planned]     │
-                 │ ──▶ git history [planned] ──▶ Claude explanations [planned]      │
+                 │ repo ref validation ──▶ GitHub archive (in memory) ──▶ Tree-sitter │
+                 │ ──▶ import resolution ──▶ NetworkX graph ──▶ cached CodeGraph     │
+                 │ [all built]   git history [planned]   Claude explanations [planned]│
                  └──────────────────────────────────────────────────────────────────┘
 ```
 
@@ -118,43 +118,96 @@ frontend/src/
 The 3D scene is loaded client-only. The explorer knows nothing about sample data: demo pages pass
 it a graph and a dataset switcher, as a real analysis page will pass it a real graph.
 
+## Analysis pipeline [built]
+
+`POST /api/v1/analyses` validates the reference and starts a background job, then
+`GET /api/v1/analyses/{id}` reports progress and `GET /api/v1/analyses/{id}/graph` returns the
+CodeGraph. The pipeline:
+
+1. **Identify.** Fetch repository metadata from `api.github.com` and resolve the default branch to
+   a commit SHA. Private repositories are refused.
+2. **Cache check.** Results are keyed by repository, commit SHA and analyzer version, in memory and
+   on disk (`GITVERSE_CACHE_DIR`). A commit never changes, so a hit is always valid.
+3. **Download.** Stream `codeload.github.com/{owner}/{name}/tar.gz/{sha}`, stopping at the size limit.
+4. **Read.** Walk the tarball in memory (`analysis/archive.py`). Only regular `.ts .tsx .mts .cts
+   .js .jsx .mjs .cjs` files are read. Declaration files, minified code, `node_modules`, build
+   output and oversized files are skipped and counted.
+5. **Parse.** Tree-sitter (`analysis/parser.py`) extracts imports (static, type-only, re-export,
+   `require`, dynamic `import()`), exports, functions, classes, lines of code (lines with a non-comment
+   token) and file-level cyclomatic complexity (1 + each `if`, loop, `case`, `catch`, ternary, `&&`,
+   `||`, `??`).
+6. **Resolve.** `analysis/resolver.py` classifies every import as internal, external package, Node
+   builtin, asset, declaration, skipped or unresolved, with a reason for unresolved ones.
+7. **Graph.** NetworkX builds the internal dependency graph. Cycles are strongly connected
+   components, marked type-only when every edge in them is. Hubs are ranked by imports in plus out.
+
+### Resolution rules
+
+Supported: relative paths with extension and `index` lookup, TypeScript's convention of writing `.js`
+for a `.ts` file, and `baseUrl` and `paths` from the nearest tsconfig.json or jsconfig.json,
+following local `extends`. Inherited `paths` are rebased onto a child's `baseUrl`, as `tsc` does.
+
+Not supported, so these are reported as external or unresolved rather than guessed: package.json
+`exports` and `imports`, **workspace packages in monorepos** (an import of a sibling package by name
+is listed as an external package), bundler aliases outside tsconfig, and non-literal specifiers
+such as `require(name)`, which are ignored.
+
 ## Backend layout [built]
 
 ```
 backend/app/
-  main.py              App factory, middleware wiring
+  main.py              App factory: HTTP client, job manager, middleware
   core/config.py       Environment settings and analysis limits
   core/middleware.py   Request body size limits
-  api/routes.py        /health, /api/v1/meta, /api/v1/analyses (501)
+  core/ratelimit.py    Per-client sliding-window limit for new analyses
+  api/routes.py        /health, /api/v1/meta, /api/v1/analyses
   schemas/graph.py     CodeGraph contract
   services/repo_ref.py Allowlist parser for user-supplied repository references
+  analysis/github.py   GitHub client: two fixed hosts, no redirects
+  analysis/archive.py  In-memory tarball reader with limits
+  analysis/parser.py   Tree-sitter extraction
+  analysis/resolver.py JS/TS import resolution
+  analysis/graph.py    NetworkX graph, cycles, hubs, CodeGraph output
+  analysis/pipeline.py Orchestration
+  analysis/jobs.py     Background jobs, concurrency, de-duplication
+  analysis/cache.py    Memory and disk result cache
 ```
 
-Tree-sitter, NetworkX, PostgreSQL and the Anthropic SDK aren't installed yet. They get added along
-with the code that uses them.
+The backend's fixture test writes `frontend/src/features/analysis/__fixtures__/analysis-sample.json`
+(`UPDATE_FIXTURES=1`), and the frontend's tests parse it, so the two schemas can't drift apart.
 
 ## Security model for untrusted repositories
 
 Every repository is hostile input. **Repository code is parsed as text and never executed.**
 
-Built:
+Built and tested:
 
-- `parse_repo_ref` is the only route from user input to a clone URL. It allowlists host, owner and
-  name, and rejects credentials, ports, traversal and leading-dash option injection.
+- `parse_repo_ref` is the only route from user input to a URL. It allowlists host, owner and name,
+  and rejects credentials, ports, traversal and leading-dash option injection.
+- Requests go only to `api.github.com` and `codeload.github.com`, over https, with URLs built from
+  validated parts and a 40-hex commit SHA. Redirects are never followed: a renamed repository is
+  reported, not chased.
+- Nothing from the repository is written to disk or executed, and no dependencies are installed.
+  Tar entries are read into memory; symlinks, hard links and devices are skipped; any absolute or
+  `..` path rejects the archive.
+- Limits on download size, archive entries, source files, per-file size, total source, declared
+  unpacked size (a decompression-bomb guard) and wall-clock time. Too many files fails clearly
+  instead of silently truncating.
+- At most `GITVERSE_MAX_CONCURRENT_ANALYSES` run at once, with a bounded queue (503 when full).
+  New analyses are rate limited per client address (429 with `Retry-After`). Requests that join an
+  analysis already running aren't counted.
+- Users see only prepared error messages. Unexpected exceptions are logged server-side and reported
+  as a generic failure.
 - Request bodies are capped, and a declared `Content-Length` is required.
-- Limits are defined and published by `/api/v1/meta`.
 
-Planned, and required before the clone step ships:
+Not yet built:
 
-- Clone with `--depth`, `--no-tags`, `--single-branch`, `--no-recurse-submodules`, with hooks
-  disabled (`core.hooksPath=/dev/null`), LFS smudge disabled, a `--` argument separator and
-  `GIT_TERMINAL_PROMPT=0`.
-- Check repository size through the GitHub API before cloning, and enforce disk, file count, file
-  size and wall-clock limits during it.
-- Never follow symlinks. Resolve every path and confirm it stays inside the working directory.
-- Never install dependencies or run build scripts, tests or anything else from the repository.
-- Run the worker in a container with no credentials, a read-only root, CPU and memory limits and
-  restricted egress. Delete the working directory afterwards.
-- Parse in a killable subprocess, with per-file timeouts, since parsers can hang on adversarial input.
-- Treat repository contents as untrusted when sending them to Claude: they are data that may contain
-  prompt injection, and any AI output must be labelled as AI-generated.
+- **Process isolation.** Parsing runs in a worker thread of the API process. Its deadline is
+  cooperative, checked between files, and memory isn't capped. Running analysis in a separate
+  container with CPU and memory limits and no credentials is the next hardening step.
+- The rate limiter and job store are in memory and per process, so they reset on restart and don't
+  share state across instances.
+- The client address comes straight from the connection. Behind a proxy, every client would share
+  one address until trusted forwarding headers are configured.
+- Claude explanations will need to treat repository contents as untrusted input, since they can
+  carry prompt injection, and label their output as AI-generated.
