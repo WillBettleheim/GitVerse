@@ -3,11 +3,19 @@
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { useFrame, useThree } from "@react-three/fiber";
-import { arcPoint, arcTangent, relatedConnections, roofOf, type Vec3 } from "@/lib/city/arcs";
+import { arcPoint, arcTangent, roofOf, type Vec3 } from "@/lib/city/arcs";
+import type { EdgeRole, RoleEdge } from "@/lib/graph/dependencies";
 import type { Building, Connection } from "@/lib/city/layout";
 
 const OUTGOING = new THREE.Color("#22d3ee");
 const INCOMING = new THREE.Color("#a78bfa");
+const CYCLE = new THREE.Color("#fbbf24");
+const ROLE_COLORS: Record<EdgeRole, THREE.Color> = {
+  import: OUTGOING,
+  importer: INCOMING,
+  cycle: CYCLE,
+};
+const colorForRole = (edge: Connection) => ROLE_COLORS[(edge as RoleEdge).role] ?? OUTGOING;
 const ARROW_T = 0.86;
 const ARROW_SIZE_PX = 13;
 const UP = new THREE.Vector3(0, 1, 0);
@@ -85,7 +93,11 @@ function buildTubeGeometry(
         const angle = (k / TUBE_SIDES) * Math.PI * 2;
         const [c, s] = [Math.cos(angle), Math.sin(angle)];
         positions.push(...center);
-        offsets.push(side.x * c + normal.x * s, side.y * c + normal.y * s, side.z * c + normal.z * s);
+        offsets.push(
+          side.x * c + normal.x * s,
+          side.y * c + normal.y * s,
+          side.z * c + normal.z * s,
+        );
         colors.push(color.r, color.g, color.b);
         progress.push(t);
       }
@@ -182,10 +194,9 @@ interface ConnectionsProps {
   buildings: readonly Building[];
   /** Shown when nothing is active. May be a subset, for dense graphs. */
   ambient: readonly Connection[];
-  /** Every connection, so an active file always shows all of its own. */
-  all: readonly Connection[];
   ambientOpacity: number;
-  activeId: string | null;
+  /** The selection's or hover's edges, coloured by their role in the traversal. */
+  active: readonly RoleEdge[];
   segments: number;
   animate: boolean;
 }
@@ -193,9 +204,8 @@ interface ConnectionsProps {
 export const Connections = memo(function Connections({
   buildings,
   ambient,
-  all,
   ambientOpacity,
-  activeId,
+  active,
   segments,
   animate,
 }: ConnectionsProps) {
@@ -207,20 +217,11 @@ export const Connections = memo(function Connections({
   );
   useEffect(() => () => ambientGeometry.dispose(), [ambientGeometry]);
 
-  const related = useMemo(
-    () => (activeId ? relatedConnections(all, activeId).slice(0, MAX_ACTIVE_CONNECTIONS) : []),
-    [all, activeId],
-  );
-  const colorFor = useMemo(
-    () => (c: Connection) => (c.source === activeId ? OUTGOING : INCOMING),
-    [activeId],
-  );
+  const related = useMemo(() => active.slice(0, MAX_ACTIVE_CONNECTIONS), [active]);
+  const colorFor = colorForRole;
   const activeGeometry = useMemo(
     // Active arcs stay smooth at every quality tier: there are few of them.
-    () =>
-      related.length > 0
-        ? buildTubeGeometry(related, byId, colorFor)
-        : null,
+    () => (related.length > 0 ? buildTubeGeometry(related, byId, colorFor) : null),
     [related, byId, colorFor],
   );
   useEffect(() => () => activeGeometry?.dispose(), [activeGeometry]);
@@ -230,7 +231,7 @@ export const Connections = memo(function Connections({
       {ambient.length > 0 && (
         <LineLayer
           geometry={ambientGeometry}
-          opacity={activeId ? ambientOpacity * 0.2 : ambientOpacity}
+          opacity={active.length > 0 ? ambientOpacity * 0.2 : ambientOpacity}
         />
       )}
       {activeGeometry && (
