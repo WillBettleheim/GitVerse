@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useArchitectStore } from "@/features/architect/store";
 import { useExplorerStore } from "./store";
 
 interface Entry {
@@ -14,6 +15,7 @@ export function DependencyLegend({ inCycle, searching }: { inCycle: boolean; sea
   const hoveredId = useExplorerStore((s) => s.hoveredId);
   const depth = useExplorerStore((s) => s.depth);
   const direction = useExplorerStore((s) => s.direction);
+  const spotlight = useArchitectStore((s) => s.spotlight);
   const [open, setOpen] = useState(true);
 
   const entries: Entry[] = [];
@@ -33,6 +35,12 @@ export function DependencyLegend({ inCycle, searching }: { inCycle: boolean; sea
   } else if (searching) {
     entries.push({ swatch: "bg-white", label: "Matches the search" });
     entries.push({ swatch: "bg-faint/40", label: "Doesn't match" });
+  } else if (spotlight) {
+    entries.push({ swatch: "bg-rose", label: "Named in AI Architect’s answer" });
+    if (spotlight.edges.length > 0) {
+      entries.push({ swatch: "bg-rose/60", label: "Arcs: imports the answer names" });
+    }
+    entries.push({ swatch: "bg-faint/40", label: "Not named" });
   } else {
     entries.push({ swatch: "bg-cyan", label: "Beacon: key module" });
     entries.push({ swatch: "bg-electric/60", label: "Arcs: imports" });

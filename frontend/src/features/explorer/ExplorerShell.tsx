@@ -34,13 +34,15 @@ interface ExplorerShellProps {
   headerSlot?: ReactNode;
   /** A bar along the bottom of the city, such as the time-travel timeline. */
   timeline?: ReactNode;
+  /** AI Architect, shown as a second tab beside the inspector. Only for real analyses. */
+  architect?: ReactNode;
 }
 
 /**
  * Subscribes to no selection state itself. The canvas, list and inspector each subscribe to what
  * they need, so a hover doesn't re-render the whole page.
  */
-export function ExplorerShell({ graph, headerSlot, timeline }: ExplorerShellProps) {
+export function ExplorerShell({ graph, headerSlot, timeline, architect }: ExplorerShellProps) {
   const city = useMemo(() => generateCity(graph), [graph]);
   const adjacency = useMemo(() => buildAdjacency(graph), [graph]);
   const reset = useExplorerStore((s) => s.reset);
@@ -84,13 +86,61 @@ export function ExplorerShell({ graph, headerSlot, timeline }: ExplorerShellProp
             aria-label="Details"
             className="order-2 min-h-0 overflow-y-auto border-b border-line bg-ink lg:order-3 lg:border-b-0 lg:border-l"
           >
-            <Inspector />
+            {architect ? <DetailsTabs architect={architect} /> : <Inspector />}
           </aside>
         </div>
 
         <SelectionAnnouncer adjacency={adjacency} />
       </div>
     </ExplorerDataProvider>
+  );
+}
+
+/**
+ * The inspector and AI Architect as tabs. Both stay mounted, so an answer still arrives while
+ * the other tab is open.
+ */
+function DetailsTabs({ architect }: { architect: ReactNode }) {
+  const tab = useExplorerStore((s) => s.detailsTab);
+  const setTab = useExplorerStore((s) => s.setDetailsTab);
+  const tabs = [
+    { id: "details", label: "Details", panel: <Inspector /> },
+    { id: "architect", label: "AI Architect", panel: architect },
+  ] as const;
+  return (
+    <>
+      <div
+        role="tablist"
+        aria-label="Side panel"
+        className="sticky top-0 z-10 flex border-b border-line bg-ink"
+      >
+        {tabs.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            id={`details-tab-${t.id}`}
+            aria-selected={tab === t.id}
+            aria-controls={`details-panel-${t.id}`}
+            onClick={() => setTab(t.id)}
+            className="flex-1 border-b-2 border-transparent px-3 py-2 font-mono text-[11px] text-muted transition-colors hover:text-text aria-selected:border-cyan aria-selected:text-text"
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      {tabs.map((t) => (
+        <div
+          key={t.id}
+          role="tabpanel"
+          id={`details-panel-${t.id}`}
+          aria-labelledby={`details-tab-${t.id}`}
+          hidden={tab !== t.id}
+        >
+          {t.panel}
+        </div>
+      ))}
+    </>
   );
 }
 

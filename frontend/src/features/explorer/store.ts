@@ -4,12 +4,18 @@ import type { DepthSetting, Direction } from "@/lib/graph/dependencies";
 import { NO_FILTERS, type SearchFilters } from "@/lib/graph/search";
 
 export type MainView = "city" | "graph";
+/** The side panel's tabs: the file inspector and insights, or AI Architect. */
+export type DetailsTab = "details" | "architect";
 
 export interface CameraCommand {
-  /** "reset" returns to the isometric home view. "fit" frames the city from the current angle. */
-  type: "reset" | "fit";
+  /**
+   * "reset" returns to the isometric home view. "fit" frames the city from the current angle.
+   * "frame" frames just the files in `ids`, from the current angle.
+   */
+  type: "reset" | "fit" | "frame";
   /** Bumped per request, so repeating the same command still takes effect. */
   count: number;
+  ids?: readonly string[];
 }
 
 export interface RenderInfo {
@@ -27,6 +33,7 @@ interface ExplorerState {
   depth: DepthSetting;
   direction: Direction;
   mainView: MainView;
+  detailsTab: DetailsTab;
   showConnections: boolean;
   cinematic: boolean;
   cameraCommand: CameraCommand;
@@ -39,6 +46,7 @@ interface ExplorerState {
   setDepth: (depth: DepthSetting) => void;
   setDirection: (direction: Direction) => void;
   setMainView: (view: MainView) => void;
+  setDetailsTab: (tab: DetailsTab) => void;
   /** Breadcrumb navigation: clears the selection and narrows the search to a folder. */
   showFolder: (folder: string | null) => void;
   toggleConnections: () => void;
@@ -46,6 +54,8 @@ interface ExplorerState {
   stopCinematic: () => void;
   resetCamera: () => void;
   fitCamera: () => void;
+  /** Frames a group of files, such as those an AI Architect answer names. */
+  frameFiles: (ids: readonly string[]) => void;
   setRenderInfo: (info: RenderInfo) => void;
   reset: () => void;
 }
@@ -58,6 +68,7 @@ const initial = {
   depth: 1 as DepthSetting,
   direction: "both" as Direction,
   mainView: "city" as MainView,
+  detailsTab: "details" as DetailsTab,
   showConnections: true,
   cinematic: false,
   cameraCommand: { type: "reset", count: 0 } as CameraCommand,
@@ -78,6 +89,7 @@ export const useExplorerStore = create<ExplorerState>((set, get) => ({
   setDepth: (depth) => set({ depth }),
   setDirection: (direction) => set({ direction }),
   setMainView: (mainView) => set({ mainView }),
+  setDetailsTab: (detailsTab) => set({ detailsTab }),
   showFolder: (folder) => set((s) => ({ selectedId: null, filters: { ...s.filters, folder } })),
   toggleConnections: () => set((s) => ({ showConnections: !s.showConnections })),
   toggleCinematic: () =>
@@ -95,6 +107,13 @@ export const useExplorerStore = create<ExplorerState>((set, get) => ({
     set((s) => ({
       cinematic: false,
       cameraCommand: { type: "fit", count: s.cameraCommand.count + 1 },
+    })),
+  frameFiles: (ids) =>
+    set((s) => ({
+      selectedId: null,
+      cinematic: false,
+      mainView: "city",
+      cameraCommand: { type: "frame", count: s.cameraCommand.count + 1, ids: [...ids] },
     })),
   setRenderInfo: (renderInfo) => set({ renderInfo }),
   reset: () => set(initial),

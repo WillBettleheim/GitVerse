@@ -1,6 +1,9 @@
 "use client";
 
+import { useEffect } from "react";
 import { Logo } from "@/components/Logo";
+import { ArchitectPanel } from "@/features/architect/ArchitectPanel";
+import { useArchitectStore } from "@/features/architect/store";
 import { ExplorerShell } from "@/features/explorer/ExplorerShell";
 import { useTimeTravelStore } from "@/features/timetravel/store";
 import { TimelineBar } from "@/features/timetravel/TimelineBar";
@@ -48,10 +51,13 @@ function TimeTravelExplorer({ latest, cached }: { latest: CodeGraph; cached: boo
   );
   const graph = historical ?? latest;
   const info = graph.analysis?.repository;
+  const resetArchitect = useArchitectStore((s) => s.reset);
+  useEffect(() => resetArchitect, [resetArchitect]);
   return (
     <ExplorerShell
       graph={graph}
       timeline={<TimelineBar controls={controls} />}
+      architect={<ArchitectPanel />}
       headerSlot={
         info && (
           <a
