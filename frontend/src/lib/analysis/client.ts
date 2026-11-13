@@ -18,6 +18,7 @@ export type Stage = (typeof STAGES)[number];
 const jobSchema = z.object({
   id: z.string().regex(/^[0-9a-f]{32}$/),
   requested: z.string(),
+  commit: z.string().nullable().optional(),
   status: z.enum(["queued", "running", "complete", "failed"]),
   createdAt: z.string(),
   progress: z.object({
@@ -83,15 +84,27 @@ function parseJob(data: unknown): AnalysisJob {
   return parsed.data;
 }
 
-export async function startAnalysis(repository: string, signal?: AbortSignal) {
+/** Analyzes the latest commit, or a specific one from the repository's history. */
+export async function startAnalysis(repository: string, signal?: AbortSignal, commit?: string) {
   return parseJob(
     await request("/api/v1/analyses", {
       method: "POST",
-      body: JSON.stringify({ repository }),
+      body: JSON.stringify(commit ? { repository, commit } : { repository }),
       signal,
     }),
   );
 }
+
+/** Cancels an analysis that hasn't started. Failing to is harmless: it finishes and is cached. */
+export async function cancelAnalysis(id: string): Promise<void> {
+  try {
+    await request(`/api/v1/analyses/${encodeURIComponent(id)}`, { method: "DELETE" });
+  } catch {
+    // Already running or finished.
+  }
+}
+
+export { request as apiRequest };
 
 export async function getAnalysis(id: string, signal?: AbortSignal) {
   return parseJob(await request(`/api/v1/analyses/${encodeURIComponent(id)}`, { signal }));

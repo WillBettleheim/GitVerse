@@ -42,6 +42,11 @@ const fileNodeSchema = z.strictObject({
   /** File-level cyclomatic complexity. */
   complexity: count,
   metrics: fileMetricsSchema.optional(),
+  /** The git blob SHA: identical exactly when the content is identical. */
+  blob: z
+    .string()
+    .regex(/^[0-9a-f]{40}$/)
+    .optional(),
 });
 
 const importEdgeSchema = z.strictObject({
@@ -60,6 +65,10 @@ export const repositoryInfoSchema = z.strictObject({
   description: z.string().nullable().optional(),
   defaultBranch: z.string(),
   commitSha: z.string().regex(/^[0-9a-f]{40}$/),
+  committedAt: z.string().nullable().optional(),
+  /** The commit message's first line, as written. Never interpreted. */
+  commitMessage: z.string().nullable().optional(),
+  commitAuthor: z.string().nullable().optional(),
   stars: count,
   forks: count,
   primaryLanguage: z.string().nullable().optional(),
