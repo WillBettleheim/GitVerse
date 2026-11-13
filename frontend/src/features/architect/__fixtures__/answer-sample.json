@@ -1,0 +1,199 @@
+{
+  "mode": "ai",
+  "question": "What depends on src/utils/helper.ts?",
+  "repository": "acme/web-app",
+  "commitSha": "0123456789abcdef0123456789abcdef01234567",
+  "answer": "src/utils/helper.ts is imported directly by three files, so a change there reaches most of the app.",
+  "claims": [
+    {
+      "text": "src/app.tsx, src/esm.ts and src/utils/index.ts import it directly.",
+      "basis": "verified",
+      "evidence": [
+        "E1"
+      ],
+      "downgraded": false
+    },
+    {
+      "text": "It acts as a shared utility layer.",
+      "basis": "inferred",
+      "evidence": [
+        "E1",
+        "E3"
+      ],
+      "downgraded": false
+    },
+    {
+      "text": "It is covered by tests.",
+      "basis": "inferred",
+      "evidence": [],
+      "downgraded": true
+    }
+  ],
+  "files": [
+    {
+      "path": "src/utils/helper.ts",
+      "reason": "The module asked about.",
+      "evidence": [
+        "E3"
+      ],
+      "lines": [
+        {
+          "start": 1,
+          "end": 13,
+          "label": "src/utils/helper.ts lines 1-13 (start of file)"
+        }
+      ]
+    },
+    {
+      "path": "src/app.tsx",
+      "reason": "Imports it directly.",
+      "evidence": [
+        "E1"
+      ],
+      "lines": [
+        {
+          "start": 1,
+          "end": 1,
+          "label": "imports src/utils/helper.ts"
+        }
+      ]
+    },
+    {
+      "path": "src/utils/index.ts",
+      "reason": "Re-exports it.",
+      "evidence": [
+        "E1"
+      ],
+      "lines": [
+        {
+          "start": 1,
+          "end": 1,
+          "label": "imports src/utils/helper.ts"
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "source": "src/app.tsx",
+      "target": "src/utils/helper.ts",
+      "line": 1,
+      "typeOnly": false
+    },
+    {
+      "source": "src/utils/index.ts",
+      "target": "src/utils/helper.ts",
+      "line": 1,
+      "typeOnly": false
+    }
+  ],
+  "uncertainty": "The analysis can't tell how often these imports run.",
+  "sufficientEvidence": true,
+  "evidence": [
+    {
+      "id": "E1",
+      "kind": "importers",
+      "title": "Files that import src/utils/helper.ts",
+      "facts": [
+        "3 file(s) import src/utils/helper.ts directly.",
+        "src/app.tsx (line 1 of src/app.tsx)",
+        "src/esm.ts (line 2 of src/esm.ts)",
+        "src/utils/index.ts (line 1 of src/utils/index.ts)",
+        "3 more file(s) depend on it indirectly, through those: scripts/run.mjs, src/component.jsx, src/index.ts"
+      ],
+      "path": "src/utils/helper.ts",
+      "lineStart": null,
+      "lineEnd": null,
+      "snippet": null,
+      "files": [
+        "src/utils/helper.ts",
+        "src/app.tsx",
+        "src/esm.ts",
+        "src/utils/index.ts"
+      ],
+      "edges": [
+        {
+          "source": "src/app.tsx",
+          "target": "src/utils/helper.ts",
+          "line": 1,
+          "typeOnly": false
+        },
+        {
+          "source": "src/esm.ts",
+          "target": "src/utils/helper.ts",
+          "line": 2,
+          "typeOnly": false
+        },
+        {
+          "source": "src/utils/index.ts",
+          "target": "src/utils/helper.ts",
+          "line": 1,
+          "typeOnly": false
+        }
+      ]
+    },
+    {
+      "id": "E2",
+      "kind": "imports",
+      "title": "Files src/utils/helper.ts imports",
+      "facts": [
+        "src/utils/helper.ts imports 0 file(s) in this repository."
+      ],
+      "path": "src/utils/helper.ts",
+      "lineStart": null,
+      "lineEnd": null,
+      "snippet": null,
+      "files": [
+        "src/utils/helper.ts"
+      ],
+      "edges": []
+    },
+    {
+      "id": "E3",
+      "kind": "file",
+      "title": "src/utils/helper.ts",
+      "facts": [
+        "Language: typescript. Lines of code: 12. Cyclomatic complexity: 7.",
+        "Functions: 1. Classes: 0. Exports: 1. Total lines: 13.",
+        "Imports 0 file(s) in this repository: none",
+        "Imported by 3 file(s): src/app.tsx, src/esm.ts, src/utils/index.ts",
+        "Declarations: function helper (lines 5-13, exported)",
+        "External packages imported: @acme/tools, lodash, path"
+      ],
+      "path": "src/utils/helper.ts",
+      "lineStart": null,
+      "lineEnd": null,
+      "snippet": null,
+      "files": [
+        "src/utils/helper.ts"
+      ],
+      "edges": []
+    },
+    {
+      "id": "E4",
+      "kind": "snippet",
+      "title": "src/utils/helper.ts lines 1-13 (start of file)",
+      "facts": [],
+      "path": "src/utils/helper.ts",
+      "lineStart": 1,
+      "lineEnd": 13,
+      "snippet": "   1| import merge from \"lodash/merge\";\n   2| import { join } from \"path\";\n   3| import { scoped } from \"@acme/tools/sub\";\n   4| \n   5| export function helper(a = true, b = false): boolean {\n   6|   if (a && b) {\n   7|     return true;\n   8|   }\n   9|   for (const part of [join(\"a\", \"b\")]) {\n  10|     if (part || merge) return false;\n  11|   }\n  12|   return scoped ?? false;\n  13| }",
+      "files": [
+        "src/utils/helper.ts"
+      ],
+      "edges": []
+    }
+  ],
+  "notes": [
+    "1 claim(s) labelled verified cited no supporting evidence, so they're shown as inferred.",
+    "Removed references to files that aren't in this analysis: src/helpers/missing.ts."
+  ],
+  "search": {
+    "terms": [],
+    "intents": [
+      "dependents"
+    ],
+    "target": "src/utils/helper.ts"
+  },
+  "model": "scripted"
+}
