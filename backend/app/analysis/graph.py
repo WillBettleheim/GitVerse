@@ -96,6 +96,7 @@ def build_code_graph(
     imports: list[ResolvedImport],
     skipped: Counter[str],
     analyzed_at: datetime | None = None,
+    blobs: dict[str, str] | None = None,
 ) -> CodeGraph:
     graph = build_dependency_graph(files, imports)
     cycles = find_cycles(graph)
@@ -131,6 +132,7 @@ def build_code_graph(
                 language=parsed.language,
                 loc=parsed.code_lines,
                 complexity=parsed.complexity,
+                blob=(blobs or {}).get(parsed.path),
                 metrics=FileMetrics(
                     total_lines=parsed.total_lines,
                     functions=parsed.functions,

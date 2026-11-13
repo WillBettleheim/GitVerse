@@ -1,6 +1,7 @@
 """Runs one analysis end to end: fetch, read, parse, resolve, build."""
 
 import asyncio
+import hashlib
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -8,7 +9,7 @@ from typing import IO, Literal
 
 from app.analysis.archive import SourceSnapshot, read_snapshot
 from app.analysis.errors import AnalysisError
-from app.analysis.github import GitHubClient, RepositoryMetadata
+from app.analysis.github import CommitInfo, GitHubClient, RepositoryMetadata
 from app.analysis.graph import build_code_graph, resolve_imports
 from app.analysis.parser import ParsedFile, parse_source
 from app.analysis.resolver import ModuleResolver
@@ -70,10 +71,21 @@ def analyze_snapshot(
         skipped_paths=snapshot.skipped_paths,
         configs=snapshot.configs,
     )
-    return build_code_graph(repository, parsed, resolve_imports(parsed, resolver), snapshot.skipped)
+    blobs = {path: git_blob_sha(content) for path, content in snapshot.files.items()}
+    return build_code_graph(
+        repository, parsed, resolve_imports(parsed, resolver), snapshot.skipped, blobs=blobs
+    )
 
 
-def repository_info(metadata: RepositoryMetadata, sha: str) -> RepositoryInfo:
+def git_blob_sha(content: bytes) -> str:
+    """The SHA git itself gives this content, so identity matches git's, not a guess."""
+    header = f"blob {len(content)}\0".encode()
+    return hashlib.sha1(header + content, usedforsecurity=False).hexdigest()
+
+
+def repository_info(metadata: RepositoryMetadata, commit: CommitInfo | str) -> RepositoryInfo:
+    info = commit if isinstance(commit, CommitInfo) else None
+    sha = commit.sha if isinstance(commit, CommitInfo) else commit
     return RepositoryInfo(
         owner=metadata.owner,
         name=metadata.name,
@@ -82,6 +94,9 @@ def repository_info(metadata: RepositoryMetadata, sha: str) -> RepositoryInfo:
         description=metadata.description,
         default_branch=metadata.default_branch,
         commit_sha=sha,
+        committed_at=info.committed_at if info else None,
+        commit_message=info.summary if info else None,
+        commit_author=info.author if info else None,
         stars=metadata.stars,
         forks=metadata.forks,
         primary_language=metadata.primary_language,
@@ -97,10 +112,10 @@ class Pipeline:
         self.github = github
         self.limits = limits
 
-    async def identify(self, ref: RepoRef) -> RepositoryInfo:
+    async def identify(self, ref: RepoRef, commit: str | None = None) -> RepositoryInfo:
+        """Repository details and a pinned commit: the one asked for, or the latest."""
         metadata = await self.github.get_repository(ref)
-        sha = await self.github.resolve_commit(metadata)
-        return repository_info(metadata, sha)
+        return repository_info(metadata, await self.github.get_commit(metadata, commit))
 
     async def analyze(
         self, repository: RepositoryInfo, deadline: float, on_progress: ProgressCallback
