@@ -10,6 +10,8 @@ from app.analysis.cache import ResultCache
 from app.analysis.github import GitHubClient
 from app.analysis.jobs import JobManager
 from app.analysis.pipeline import Pipeline
+from app.api.history import HISTORY_TTL_SECONDS, TtlCache
+from app.api.history import router as history_router
 from app.api.routes import router
 from app.core.config import AnalysisLimits, Settings, get_limits, get_settings
 from app.core.middleware import BodySizeLimitMiddleware
@@ -53,17 +55,22 @@ def create_app(
     app = FastAPI(title="GitVerse API", version=__version__, lifespan=lifespan)
     app.state.jobs = jobs
     app.state.analysis_limiter = SlidingWindowLimiter(settings.analysis_requests_per_minute)
+    app.state.history_limiter = SlidingWindowLimiter(settings.history_requests_per_minute)
+    app.state.github = pipeline.github
+    app.state.history_cache = TtlCache[dict[str, object]](HISTORY_TTL_SECONDS, 64)
+    app.state.diff_cache = TtlCache[dict[str, object]](3600, 64)
     app.add_middleware(BodySizeLimitMiddleware, max_bytes=settings.max_request_body_bytes)
     # Added last so it is outermost: limit rejections still carry CORS headers.
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origin_list,
-        allow_methods=["GET", "POST"],
+        allow_methods=["GET", "POST", "DELETE"],
         allow_headers=["Content-Type"],
         # Without this, browsers hide Retry-After from the frontend.
         expose_headers=["Retry-After"],
     )
     app.include_router(router)
+    app.include_router(history_router)
     return app
 
 

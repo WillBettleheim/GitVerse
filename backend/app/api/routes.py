@@ -39,6 +39,8 @@ class MetaResponse(BaseModel):
 
 class AnalysisRequest(BaseModel):
     repository: str = Field(max_length=300, examples=["sindresorhus/ky"])
+    # A full commit SHA from the repository's history. Omitted means the latest commit.
+    commit: str | None = Field(default=None, pattern=r"^[0-9a-f]{40}$")
 
 
 class _Camel(BaseModel):
@@ -59,6 +61,7 @@ class ErrorView(_Camel):
 class JobView(_Camel):
     id: str
     requested: str
+    commit: str | None
     status: str
     created_at: str
     progress: ProgressView
@@ -81,6 +84,7 @@ def _view(job: Job) -> dict[str, Any]:
     view = JobView(
         id=job.id,
         requested=job.ref.full_name,
+        commit=job.commit,
         status=job.status,
         created_at=job.created_at,
         progress=ProgressView(
@@ -145,9 +149,15 @@ async def create_analysis(
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
 
     # Joining an analysis that's already running costs nothing, so it isn't rate limited.
-    existing = jobs.find_active(ref)
+    existing = jobs.find_active(ref, body.commit)
     if existing is not None:
         return JSONResponse(_view(existing), status_code=status.HTTP_202_ACCEPTED)
+    # Neither is an exact commit that's already been analyzed: it needs nothing from GitHub.
+    if body.commit is not None:
+        cached = jobs.cached(ref, body.commit)
+        if cached is not None:
+            job = jobs.complete_from_cache(ref, body.commit, cached)
+            return JSONResponse(_view(job), status_code=status.HTTP_202_ACCEPTED)
 
     client = request.client.host if request.client else "unknown"
     retry_after = limiter.check(client)
@@ -159,7 +169,7 @@ async def create_analysis(
         )
 
     try:
-        job = jobs.submit(ref)
+        job = jobs.submit(ref, body.commit)
     except AnalysisError as exc:
         return JSONResponse(
             {"detail": exc.message},
@@ -172,6 +182,18 @@ async def create_analysis(
 @router.get("/api/v1/analyses/{job_id}", tags=["analysis"])
 def get_analysis(job_id: str, jobs: Annotated[JobManager, Depends(get_jobs)]) -> dict[str, Any]:
     return _view(_find(jobs, job_id))
+
+
+@router.delete("/api/v1/analyses/{job_id}", tags=["analysis"])
+def cancel_analysis(job_id: str, jobs: Annotated[JobManager, Depends(get_jobs)]) -> dict[str, Any]:
+    """Cancels an analysis that hasn't started. One already running finishes and is cached."""
+    job = _find(jobs, job_id)
+    if not jobs.cancel(job.id):
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Only an analysis that hasn't started can be cancelled.",
+        )
+    return _view(job)
 
 
 @router.get("/api/v1/analyses/{job_id}/graph", tags=["analysis"])

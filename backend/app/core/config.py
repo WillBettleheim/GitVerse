@@ -36,7 +36,10 @@ class Settings(BaseSettings):
     max_concurrent_analyses: int = Field(default=2, gt=0)
     max_queued_analyses: int = Field(default=8, ge=0)
     # New analysis requests allowed per client address per minute.
-    analysis_requests_per_minute: int = Field(default=6, gt=0)
+    # Time travel analyzes several commits in a row, and commits already cached don't count.
+    analysis_requests_per_minute: int = Field(default=20, gt=0)
+    # History pages and comparisons per client address per minute.
+    history_requests_per_minute: int = Field(default=30, gt=0)
     # Finished results, keyed by repository and commit. Empty disables the disk cache.
     cache_dir: str = ".cache/analyses"
     github_token: SecretStr | None = None
