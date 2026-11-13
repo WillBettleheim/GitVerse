@@ -1,0 +1,420 @@
+{
+  "schemaVersion": 1,
+  "provenance": {
+    "kind": "analysis",
+    "repository": "acme/web-app",
+    "note": "Static analysis of commit 0123456."
+  },
+  "files": [
+    {
+      "id": "scripts/run.mjs",
+      "path": "scripts/run.mjs",
+      "language": "javascript",
+      "loc": 3,
+      "complexity": 1,
+      "metrics": {
+        "totalLines": 3,
+        "functions": 0,
+        "classes": 0,
+        "exports": 0,
+        "localDependencies": 1,
+        "incomingDependencies": 0,
+        "externalImports": 0,
+        "unresolvedImports": 0,
+        "parseError": false
+      }
+    },
+    {
+      "id": "src/app.tsx",
+      "path": "src/app.tsx",
+      "language": "tsx",
+      "loc": 12,
+      "complexity": 3,
+      "metrics": {
+        "totalLines": 15,
+        "functions": 2,
+        "classes": 1,
+        "exports": 2,
+        "localDependencies": 2,
+        "incomingDependencies": 3,
+        "externalImports": 0,
+        "unresolvedImports": 0,
+        "parseError": false
+      }
+    },
+    {
+      "id": "src/broken.ts",
+      "path": "src/broken.ts",
+      "language": "typescript",
+      "loc": 2,
+      "complexity": 1,
+      "metrics": {
+        "totalLines": 2,
+        "functions": 1,
+        "classes": 0,
+        "exports": 2,
+        "localDependencies": 0,
+        "incomingDependencies": 0,
+        "externalImports": 0,
+        "unresolvedImports": 0,
+        "parseError": true
+      }
+    },
+    {
+      "id": "src/component.jsx",
+      "path": "src/component.jsx",
+      "language": "jsx",
+      "loc": 4,
+      "complexity": 2,
+      "metrics": {
+        "totalLines": 5,
+        "functions": 1,
+        "classes": 0,
+        "exports": 2,
+        "localDependencies": 1,
+        "incomingDependencies": 0,
+        "externalImports": 0,
+        "unresolvedImports": 0,
+        "parseError": false
+      }
+    },
+    {
+      "id": "src/decl-user.ts",
+      "path": "src/decl-user.ts",
+      "language": "typescript",
+      "loc": 4,
+      "complexity": 1,
+      "metrics": {
+        "totalLines": 4,
+        "functions": 0,
+        "classes": 0,
+        "exports": 0,
+        "localDependencies": 0,
+        "incomingDependencies": 0,
+        "externalImports": 0,
+        "unresolvedImports": 1,
+        "parseError": false
+      }
+    },
+    {
+      "id": "src/esm.ts",
+      "path": "src/esm.ts",
+      "language": "typescript",
+      "loc": 2,
+      "complexity": 1,
+      "metrics": {
+        "totalLines": 3,
+        "functions": 0,
+        "classes": 0,
+        "exports": 1,
+        "localDependencies": 1,
+        "incomingDependencies": 0,
+        "externalImports": 0,
+        "unresolvedImports": 0,
+        "parseError": false
+      }
+    },
+    {
+      "id": "src/index.ts",
+      "path": "src/index.ts",
+      "language": "typescript",
+      "loc": 11,
+      "complexity": 1,
+      "metrics": {
+        "totalLines": 15,
+        "functions": 2,
+        "classes": 0,
+        "exports": 4,
+        "localDependencies": 4,
+        "incomingDependencies": 0,
+        "externalImports": 2,
+        "unresolvedImports": 1,
+        "parseError": false
+      }
+    },
+    {
+      "id": "src/lazy.ts",
+      "path": "src/lazy.ts",
+      "language": "typescript",
+      "loc": 1,
+      "complexity": 1,
+      "metrics": {
+        "totalLines": 1,
+        "functions": 0,
+        "classes": 0,
+        "exports": 1,
+        "localDependencies": 0,
+        "incomingDependencies": 2,
+        "externalImports": 0,
+        "unresolvedImports": 0,
+        "parseError": false
+      }
+    },
+    {
+      "id": "src/legacy.js",
+      "path": "src/legacy.js",
+      "language": "javascript",
+      "loc": 5,
+      "complexity": 1,
+      "metrics": {
+        "totalLines": 5,
+        "functions": 0,
+        "classes": 0,
+        "exports": 2,
+        "localDependencies": 1,
+        "incomingDependencies": 0,
+        "externalImports": 0,
+        "unresolvedImports": 0,
+        "parseError": false
+      }
+    },
+    {
+      "id": "src/types.ts",
+      "path": "src/types.ts",
+      "language": "typescript",
+      "loc": 4,
+      "complexity": 1,
+      "metrics": {
+        "totalLines": 4,
+        "functions": 0,
+        "classes": 0,
+        "exports": 2,
+        "localDependencies": 0,
+        "incomingDependencies": 1,
+        "externalImports": 0,
+        "unresolvedImports": 0,
+        "parseError": false
+      }
+    },
+    {
+      "id": "src/utils/helper.ts",
+      "path": "src/utils/helper.ts",
+      "language": "typescript",
+      "loc": 12,
+      "complexity": 7,
+      "metrics": {
+        "totalLines": 13,
+        "functions": 1,
+        "classes": 0,
+        "exports": 1,
+        "localDependencies": 0,
+        "incomingDependencies": 3,
+        "externalImports": 3,
+        "unresolvedImports": 0,
+        "parseError": false
+      }
+    },
+    {
+      "id": "src/utils/index.ts",
+      "path": "src/utils/index.ts",
+      "language": "typescript",
+      "loc": 2,
+      "complexity": 1,
+      "metrics": {
+        "totalLines": 2,
+        "functions": 1,
+        "classes": 0,
+        "exports": 2,
+        "localDependencies": 1,
+        "incomingDependencies": 2,
+        "externalImports": 0,
+        "unresolvedImports": 0,
+        "parseError": false
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "scripts/run.mjs",
+      "target": "src/app.tsx",
+      "kind": "import",
+      "typeOnly": false
+    },
+    {
+      "source": "src/app.tsx",
+      "target": "src/utils/helper.ts",
+      "kind": "import",
+      "typeOnly": false
+    },
+    {
+      "source": "src/app.tsx",
+      "target": "src/utils/index.ts",
+      "kind": "import",
+      "typeOnly": false
+    },
+    {
+      "source": "src/component.jsx",
+      "target": "src/app.tsx",
+      "kind": "import",
+      "typeOnly": false
+    },
+    {
+      "source": "src/esm.ts",
+      "target": "src/utils/helper.ts",
+      "kind": "import",
+      "typeOnly": false
+    },
+    {
+      "source": "src/index.ts",
+      "target": "src/app.tsx",
+      "kind": "import",
+      "typeOnly": false
+    },
+    {
+      "source": "src/index.ts",
+      "target": "src/lazy.ts",
+      "kind": "import",
+      "typeOnly": false
+    },
+    {
+      "source": "src/index.ts",
+      "target": "src/types.ts",
+      "kind": "import",
+      "typeOnly": true
+    },
+    {
+      "source": "src/index.ts",
+      "target": "src/utils/index.ts",
+      "kind": "import",
+      "typeOnly": false
+    },
+    {
+      "source": "src/legacy.js",
+      "target": "src/lazy.ts",
+      "kind": "import",
+      "typeOnly": false
+    },
+    {
+      "source": "src/utils/index.ts",
+      "target": "src/utils/helper.ts",
+      "kind": "import",
+      "typeOnly": false
+    }
+  ],
+  "analysis": {
+    "repository": {
+      "owner": "acme",
+      "name": "web-app",
+      "fullName": "acme/web-app",
+      "url": "https://github.com/acme/web-app",
+      "description": "Fixture repository",
+      "defaultBranch": "main",
+      "commitSha": "0123456789abcdef0123456789abcdef01234567",
+      "stars": 0,
+      "forks": 0,
+      "primaryLanguage": "TypeScript",
+      "archived": false
+    },
+    "analyzerVersion": "1",
+    "analyzedAt": "2026-01-01T00:00:00+00:00",
+    "languages": {
+      "javascript": 2,
+      "jsx": 1,
+      "tsx": 1,
+      "typescript": 8
+    },
+    "totalLoc": 62,
+    "externalDependencies": [
+      {
+        "name": "@acme/tools",
+        "kind": "package",
+        "importers": 1
+      },
+      {
+        "name": "fs",
+        "kind": "builtin",
+        "importers": 1
+      },
+      {
+        "name": "lodash",
+        "kind": "package",
+        "importers": 1
+      },
+      {
+        "name": "path",
+        "kind": "builtin",
+        "importers": 1
+      },
+      {
+        "name": "react",
+        "kind": "package",
+        "importers": 1
+      }
+    ],
+    "unresolvedImports": [
+      {
+        "source": "src/decl-user.ts",
+        "specifier": "../../outside",
+        "line": 3,
+        "reason": "Points outside the repository"
+      },
+      {
+        "source": "src/index.ts",
+        "specifier": "./missing",
+        "line": 6,
+        "reason": "No file matches './missing'"
+      }
+    ],
+    "unresolvedImportCount": 2,
+    "cycles": [],
+    "cycleCount": 0,
+    "hubs": [
+      {
+        "id": "src/app.tsx",
+        "incoming": 3,
+        "outgoing": 2
+      },
+      {
+        "id": "src/index.ts",
+        "incoming": 0,
+        "outgoing": 4
+      },
+      {
+        "id": "src/utils/helper.ts",
+        "incoming": 3,
+        "outgoing": 0
+      },
+      {
+        "id": "src/utils/index.ts",
+        "incoming": 2,
+        "outgoing": 1
+      },
+      {
+        "id": "src/lazy.ts",
+        "incoming": 2,
+        "outgoing": 0
+      },
+      {
+        "id": "scripts/run.mjs",
+        "incoming": 0,
+        "outgoing": 1
+      },
+      {
+        "id": "src/component.jsx",
+        "incoming": 0,
+        "outgoing": 1
+      },
+      {
+        "id": "src/esm.ts",
+        "incoming": 0,
+        "outgoing": 1
+      },
+      {
+        "id": "src/legacy.js",
+        "incoming": 0,
+        "outgoing": 1
+      },
+      {
+        "id": "src/types.ts",
+        "incoming": 1,
+        "outgoing": 0
+      }
+    ],
+    "skippedFiles": {
+      "declaration_file": 1,
+      "minified": 1,
+      "vendored_or_generated": 2
+    },
+    "filesWithParseErrors": 1
+  }
+}
