@@ -14,6 +14,9 @@ import tree_sitter_typescript
 from tree_sitter import Language, Node, Parser, Tree
 
 ImportKind = Literal["static", "type", "reexport", "require", "dynamic"]
+SymbolKind = Literal[
+    "function", "class", "method", "interface", "type", "enum", "namespace", "variable"
+]
 FileLanguage = Literal["typescript", "tsx", "javascript", "jsx"]
 
 FUNCTION_NODES = {
@@ -57,6 +60,17 @@ class ImportRef:
     line: int
 
 
+@dataclass(frozen=True)
+class Symbol:
+    """A named top-level declaration, or a class method, with its exact line span (1-based)."""
+
+    name: str
+    kind: SymbolKind
+    line: int
+    end_line: int
+    exported: bool
+
+
 @dataclass
 class ParsedFile:
     path: str
@@ -70,6 +84,7 @@ class ParsedFile:
     complexity: int
     imports: list[ImportRef] = field(default_factory=list)
     exports: list[str] = field(default_factory=list)
+    symbols: list[Symbol] = field(default_factory=list)
     parse_error: bool = False
 
 
@@ -142,6 +157,7 @@ def parse_source(path: str, source: bytes) -> ParsedFile:
 
     result.code_lines = len(code_rows)
     result.exports = list(exports)
+    result.symbols = _collect_symbols(tree.root_node)
     return result
 
 
@@ -231,6 +247,92 @@ def _declared_names(declaration: Node) -> list[str]:
                     names.append(name.text.decode("utf-8", "replace"))
         return names
     return []
+
+
+_DECLARATION_KINDS: dict[str, SymbolKind] = {
+    "function_declaration": "function",
+    "generator_function_declaration": "function",
+    "class_declaration": "class",
+    "abstract_class_declaration": "class",
+    "interface_declaration": "interface",
+    "type_alias_declaration": "type",
+    "enum_declaration": "enum",
+    "internal_module": "namespace",
+}
+_FUNCTION_VALUES = {"arrow_function", "function_expression", "function", "generator_function"}
+MAX_SYMBOLS_PER_FILE = 400
+
+
+def _collect_symbols(root: Node) -> list[Symbol]:
+    """Top-level declarations and their class methods, in source order.
+
+    Only the program's own statements are read, so names inside function bodies never appear.
+    """
+    symbols: list[Symbol] = []
+
+    def add(name_node: Node | None, kind: SymbolKind, span: Node, exported: bool) -> None:
+        if name_node is None or not name_node.text or len(symbols) >= MAX_SYMBOLS_PER_FILE:
+            return
+        symbols.append(
+            Symbol(
+                name=name_node.text.decode("utf-8", "replace")[:200],
+                kind=kind,
+                line=span.start_point.row + 1,
+                end_line=span.end_point.row + 1,
+                exported=exported,
+            )
+        )
+
+    def declaration(node: Node, span: Node, exported: bool) -> None:
+        kind = _DECLARATION_KINDS.get(node.type)
+        if kind is not None:
+            add(node.child_by_field_name("name"), kind, span, exported)
+            if kind == "class":
+                _methods(node, exported)
+        elif node.type in ("lexical_declaration", "variable_declaration"):
+            for child in node.children:
+                if child.type != "variable_declarator":
+                    continue
+                name = child.child_by_field_name("name")
+                if name is None or name.type != "identifier":
+                    continue
+                value = child.child_by_field_name("value")
+                is_function = value is not None and value.type in _FUNCTION_VALUES
+                add(name, "function" if is_function else "variable", span, exported)
+
+    def _methods(class_node: Node, exported: bool) -> None:
+        class_name = class_node.child_by_field_name("name")
+        body = class_node.child_by_field_name("body")
+        if class_name is None or body is None or not class_name.text:
+            return
+        prefix = class_name.text.decode("utf-8", "replace")
+        for member in body.children:
+            if member.type != "method_definition":
+                continue
+            name = member.child_by_field_name("name")
+            if name is not None and name.text and len(symbols) < MAX_SYMBOLS_PER_FILE:
+                symbols.append(
+                    Symbol(
+                        name=f"{prefix}.{name.text.decode('utf-8', 'replace')}"[:200],
+                        kind="method",
+                        line=member.start_point.row + 1,
+                        end_line=member.end_point.row + 1,
+                        exported=exported,
+                    )
+                )
+
+    for statement in root.children:
+        if statement.type == "export_statement":
+            inner = statement.child_by_field_name("declaration")
+            if inner is not None:
+                declaration(inner, statement, exported=True)
+            else:
+                value = statement.child_by_field_name("value")
+                if value is not None and value.type in _DECLARATION_KINDS:
+                    declaration(value, statement, exported=True)
+        else:
+            declaration(statement, statement, exported=False)
+    return symbols
 
 
 def _collect_call(node: Node, imports: list[ImportRef]) -> None:
