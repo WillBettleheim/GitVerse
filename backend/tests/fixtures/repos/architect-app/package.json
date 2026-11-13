@@ -1,0 +1,1 @@
+{ "name": "architect-app", "private": true, "dependencies": { "express": "^4", "jsonwebtoken": "^9", "pg": "^8" } }
