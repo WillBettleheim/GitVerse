@@ -6,6 +6,13 @@ import { NO_FILTERS, type SearchFilters } from "@/lib/graph/search";
 export type MainView = "city" | "graph";
 /** The side panel's tabs: the file inspector and insights, or AI Architect. */
 export type DetailsTab = "details" | "architect";
+/** Side panels that can be collapsed to give the city more room. */
+export type PanelName = "files" | "details";
+/**
+ * A lens lights up one kind of architectural hotspot, each counted from the graph: the most
+ * complex files, the most depended upon, or every file in an import cycle.
+ */
+export type Lens = "none" | "complexity" | "dependents" | "cycles";
 
 export interface CameraCommand {
   /**
@@ -34,6 +41,8 @@ interface ExplorerState {
   direction: Direction;
   mainView: MainView;
   detailsTab: DetailsTab;
+  panels: Record<PanelName, boolean>;
+  lens: Lens;
   showConnections: boolean;
   cinematic: boolean;
   cameraCommand: CameraCommand;
@@ -47,6 +56,10 @@ interface ExplorerState {
   setDirection: (direction: Direction) => void;
   setMainView: (view: MainView) => void;
   setDetailsTab: (tab: DetailsTab) => void;
+  togglePanel: (panel: PanelName) => void;
+  /** Opens the side panel on AI Architect. */
+  openArchitect: () => void;
+  setLens: (lens: Lens) => void;
   /** Breadcrumb navigation: clears the selection and narrows the search to a folder. */
   showFolder: (folder: string | null) => void;
   toggleConnections: () => void;
@@ -69,6 +82,8 @@ const initial = {
   direction: "both" as Direction,
   mainView: "city" as MainView,
   detailsTab: "details" as DetailsTab,
+  panels: { files: true, details: true } as Record<PanelName, boolean>,
+  lens: "none" as Lens,
   showConnections: true,
   cinematic: false,
   cameraCommand: { type: "reset", count: 0 } as CameraCommand,
@@ -90,6 +105,10 @@ export const useExplorerStore = create<ExplorerState>((set, get) => ({
   setDirection: (direction) => set({ direction }),
   setMainView: (mainView) => set({ mainView }),
   setDetailsTab: (detailsTab) => set({ detailsTab }),
+  togglePanel: (panel) => set((s) => ({ panels: { ...s.panels, [panel]: !s.panels[panel] } })),
+  openArchitect: () =>
+    set((s) => ({ detailsTab: "architect", panels: { ...s.panels, details: true } })),
+  setLens: (lens) => set({ lens }),
   showFolder: (folder) => set((s) => ({ selectedId: null, filters: { ...s.filters, folder } })),
   toggleConnections: () => set((s) => ({ showConnections: !s.showConnections })),
   toggleCinematic: () =>

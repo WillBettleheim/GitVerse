@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, type ReactNode } from "react";
+import { useEffect, useMemo, type CSSProperties, type ReactNode } from "react";
 import { Logo } from "@/components/Logo";
 import { LazyCityCanvas } from "@/features/city/LazyCityCanvas";
 import { generateCity } from "@/lib/city/layout";
@@ -15,7 +15,7 @@ import { CanvasToolbar } from "./CanvasToolbar";
 import { DemoBanner } from "./DemoBanner";
 import { FileNavigator } from "./FileNavigator";
 import { Inspector } from "./Inspector";
-import { useExplorerStore } from "./store";
+import { useExplorerStore, type PanelName } from "./store";
 
 const WEBGL_FALLBACK = (
   <div role="alert" className="absolute inset-0 grid place-items-center p-6 text-center">
@@ -52,47 +52,194 @@ export function ExplorerShell({ graph, headerSlot, timeline, architect }: Explor
 
   return (
     <ExplorerDataProvider graph={graph} city={city} adjacency={adjacency}>
-      <div className="flex min-h-svh flex-col bg-void lg:h-svh lg:overflow-hidden">
-        <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-line bg-ink px-4">
-          <div className="flex min-w-0 items-center gap-4">
+      <div className="relative flex min-h-svh flex-col bg-void lg:h-svh lg:overflow-hidden">
+        <header className="chrome holo-edge relative z-30 flex h-14 shrink-0 items-center justify-between gap-3 border-b px-3 sm:px-4">
+          <div className="flex min-w-0 items-center gap-3 sm:gap-4">
             <Logo />
-            <span aria-hidden="true" className="h-4 w-px bg-line" />
-            <span className="truncate font-mono text-xs text-muted">
-              {graph.provenance.repository}
-            </span>
+            <span aria-hidden="true" className="hidden h-5 w-px bg-line sm:block" />
+            <RepositoryIdentity graph={graph} />
             {headerSlot}
           </div>
-          <ApiStatus />
+          <div className="flex shrink-0 items-center gap-2">
+            <PanelToggles architect={Boolean(architect)} />
+            <span className="hidden md:inline-flex">
+              <ApiStatus />
+            </span>
+          </div>
         </header>
 
         <DemoBanner provenance={graph.provenance} />
 
-        <div className="flex flex-1 flex-col lg:grid lg:min-h-0 lg:grid-cols-[17rem_minmax(0,1fr)_20rem]">
-          <main className="relative order-1 h-[58svh] shrink-0 lg:order-2 lg:h-auto">
+        <Workspace>
+          <main className="relative order-1 h-[64svh] shrink-0 overflow-hidden lg:order-2 lg:col-start-2 lg:row-start-1 lg:h-auto">
             <LazyCityCanvas graph={graph} city={city} mode="explorer" fallback={WEBGL_FALLBACK} />
             <MainOverlay />
             <CanvasToolbar omittedFileCount={city.omittedFileCount} raised={Boolean(timeline)} />
             {timeline}
           </main>
 
-          <aside
-            aria-label="Files"
-            className="order-3 min-h-0 border-line bg-ink lg:order-1 lg:border-r"
+          <SidePanel
+            name="files"
+            label="Files"
+            className="order-3 border-line lg:order-1 lg:col-start-1 lg:row-start-1 lg:border-r"
           >
             <FileNavigator />
-          </aside>
+          </SidePanel>
 
-          <aside
-            aria-label="Details"
-            className="order-2 min-h-0 overflow-y-auto border-b border-line bg-ink lg:order-3 lg:border-b-0 lg:border-l"
+          <SidePanel
+            name="details"
+            label="Details"
+            className="order-2 overflow-y-auto border-b border-line lg:order-3 lg:col-start-3 lg:row-start-1 lg:border-b-0 lg:border-l"
           >
             {architect ? <DetailsTabs architect={architect} /> : <Inspector />}
-          </aside>
-        </div>
+          </SidePanel>
+        </Workspace>
 
         <SelectionAnnouncer adjacency={adjacency} />
       </div>
     </ExplorerDataProvider>
+  );
+}
+
+/** The grid of panels. A collapsed side panel gives its width to the city. */
+function Workspace({ children }: { children: ReactNode }) {
+  const panels = useExplorerStore((s) => s.panels);
+  const columns = `${panels.files ? "17rem" : "0"} minmax(0,1fr) ${panels.details ? "22rem" : "0"}`;
+  return (
+    <div
+      className="flex flex-1 flex-col lg:grid lg:min-h-0 lg:[grid-template-columns:var(--columns)] lg:transition-[grid-template-columns] lg:duration-300"
+      style={{ "--columns": columns } as CSSProperties}
+    >
+      {children}
+    </div>
+  );
+}
+
+/**
+ * A side panel. Collapsing hides it on large screens only: on small screens the panels stack
+ * below the city, so there is nothing to make room for. `relative` keeps absolutely positioned
+ * descendants, such as screen-reader text, from escaping and scrolling the page.
+ */
+function SidePanel({
+  name,
+  label,
+  className,
+  children,
+}: {
+  name: PanelName;
+  label: string;
+  className: string;
+  children: ReactNode;
+}) {
+  const open = useExplorerStore((s) => s.panels[name]);
+  return (
+    <aside
+      aria-label={label}
+      id={`panel-${name}`}
+      className={`relative min-h-0 min-w-0 bg-ink ${open ? "" : "lg:hidden"} ${className}`}
+    >
+      {children}
+    </aside>
+  );
+}
+
+/** The repository, its owner, and where the data came from. */
+function RepositoryIdentity({ graph }: { graph: CodeGraph }) {
+  const [owner, name] = graph.provenance.repository.split("/", 2);
+  const sample = graph.provenance.kind === "demo";
+  return (
+    <div className="flex min-w-0 items-center gap-2">
+      <span
+        aria-hidden="true"
+        className="hidden h-6 w-6 shrink-0 place-items-center rounded-md border border-line bg-raised font-mono text-[11px] text-cyan sm:grid"
+      >
+        {(name ?? owner ?? "?").charAt(0).toUpperCase()}
+      </span>
+      <p className="min-w-0 truncate text-sm">
+        {name ? (
+          <>
+            <span className="text-muted">{owner}</span>
+            <span className="text-faint"> / </span>
+            <span className="font-medium text-text">{name}</span>
+          </>
+        ) : (
+          <span className="font-medium text-text">{owner}</span>
+        )}
+      </p>
+      {sample && (
+        <span className="shrink-0 rounded border border-amber/40 px-1.5 font-mono text-[10px] text-amber">
+          Sample
+        </span>
+      )}
+    </div>
+  );
+}
+
+const toggle =
+  "inline-flex h-8 items-center gap-1.5 rounded-md border border-line px-2.5 font-mono text-[11px] text-muted transition-colors hover:border-faint hover:text-text aria-pressed:border-cyan/40 aria-pressed:bg-cyan/5 aria-pressed:text-text";
+
+/** Show or hide the side panels, and jump to AI Architect. Large screens only. */
+function PanelToggles({ architect }: { architect: boolean }) {
+  const panels = useExplorerStore((s) => s.panels);
+  const togglePanel = useExplorerStore((s) => s.togglePanel);
+  const openArchitect = useExplorerStore((s) => s.openArchitect);
+  const tab = useExplorerStore((s) => s.detailsTab);
+  return (
+    <div className="hidden items-center gap-1.5 lg:flex">
+      <button
+        type="button"
+        aria-pressed={panels.files}
+        aria-controls="panel-files"
+        aria-keyshortcuts="["
+        title="Show or hide the file explorer ( [ )"
+        onClick={() => togglePanel("files")}
+        className={toggle}
+      >
+        <PanelIcon side="left" /> Files
+      </button>
+      {architect && (
+        <button
+          type="button"
+          aria-pressed={panels.details && tab === "architect"}
+          onClick={openArchitect}
+          title="Ask AI Architect about this repository"
+          className={`${toggle} aria-pressed:border-violet/50 aria-pressed:bg-violet/10`}
+        >
+          <span aria-hidden="true" className="text-violet">
+            ✦
+          </span>
+          Ask AI
+        </button>
+      )}
+      <button
+        type="button"
+        aria-pressed={panels.details}
+        aria-controls="panel-details"
+        aria-keyshortcuts="]"
+        title="Show or hide the inspector ( ] )"
+        onClick={() => togglePanel("details")}
+        className={toggle}
+      >
+        Inspector <PanelIcon side="right" />
+      </button>
+    </div>
+  );
+}
+
+function PanelIcon({ side }: { side: "left" | "right" }) {
+  return (
+    <svg aria-hidden="true" width="13" height="13" viewBox="0 0 16 16" fill="none">
+      <rect x="1.5" y="2.5" width="13" height="11" rx="2" stroke="currentColor" />
+      <rect
+        x={side === "left" ? 2 : 10}
+        y="3"
+        width="4"
+        height="10"
+        rx="1"
+        fill="currentColor"
+        opacity="0.55"
+      />
+    </svg>
   );
 }
 
@@ -112,7 +259,7 @@ function DetailsTabs({ architect }: { architect: ReactNode }) {
       <div
         role="tablist"
         aria-label="Side panel"
-        className="sticky top-0 z-10 flex border-b border-line bg-ink"
+        className="chrome sticky top-0 z-10 flex border-b border-line"
       >
         {tabs.map((t) => (
           <button
@@ -123,8 +270,13 @@ function DetailsTabs({ architect }: { architect: ReactNode }) {
             aria-selected={tab === t.id}
             aria-controls={`details-panel-${t.id}`}
             onClick={() => setTab(t.id)}
-            className="flex-1 border-b-2 border-transparent px-3 py-2 font-mono text-[11px] text-muted transition-colors hover:text-text aria-selected:border-cyan aria-selected:text-text"
+            className="flex-1 border-b-2 border-transparent px-3 py-2.5 font-mono text-[11px] tracking-wide text-muted uppercase transition-colors hover:text-text aria-selected:border-cyan aria-selected:text-text"
           >
+            {t.id === "architect" && (
+              <span aria-hidden="true" className="mr-1.5 text-violet">
+                ✦
+              </span>
+            )}
             {t.label}
           </button>
         ))}
@@ -177,19 +329,23 @@ function useKeyboardShortcuts() {
   const fitCamera = useExplorerStore((s) => s.fitCamera);
   const resetCamera = useExplorerStore((s) => s.resetCamera);
   const setMainView = useExplorerStore((s) => s.setMainView);
+  const togglePanel = useExplorerStore((s) => s.togglePanel);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.metaKey || event.ctrlKey || event.altKey) return;
-      const target = event.target as HTMLElement | null;
-      if (target?.closest("input, textarea, select, [contenteditable]")) return;
+      const target = event.target;
+      if (target instanceof Element && target.closest("input, textarea, select, [contenteditable]"))
+        return;
       if (event.key === "Escape") {
         select(null);
         setMainView("city");
       } else if (event.key === "f") fitCamera();
       else if (event.key === "r") resetCamera();
+      else if (event.key === "[") togglePanel("files");
+      else if (event.key === "]") togglePanel("details");
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [select, fitCamera, resetCamera, setMainView]);
+  }, [select, fitCamera, resetCamera, setMainView, togglePanel]);
 }

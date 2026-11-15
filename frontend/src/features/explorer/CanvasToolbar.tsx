@@ -4,7 +4,7 @@ import { useReducedMotion } from "@/features/city/use-reduced-motion";
 import { useExplorerStore } from "./store";
 
 const button =
-  "h-8 rounded border border-line bg-panel/90 px-3 font-mono text-xs text-muted backdrop-blur transition-colors hover:border-faint hover:text-text disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-line disabled:hover:text-muted aria-pressed:border-cyan/50 aria-pressed:text-cyan";
+  "glass h-8 rounded-md px-3 font-mono text-xs text-muted transition-colors hover:border-faint hover:text-text disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-line disabled:hover:text-muted aria-pressed:border-cyan/50 aria-pressed:text-cyan";
 
 const countFormat = new Intl.NumberFormat("en-US");
 
@@ -52,7 +52,7 @@ export function CanvasToolbar({
           disabled={reducedMotion}
           title={reducedMotion ? "Off because your system asks for reduced motion." : undefined}
           onClick={toggleCinematic}
-          className={button}
+          className={`${button} max-sm:hidden`}
         >
           Cinematic
         </button>

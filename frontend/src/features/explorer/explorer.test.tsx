@@ -44,7 +44,9 @@ describe("demo labelling", () => {
   it("always shows the banner in the explorer for demo graphs", () => {
     render(<ExplorerShell graph={graph} />);
     expect(screen.getByText("DEMO MODE")).toBeInTheDocument();
-    expect(screen.getByText("sample/lumen-store")).toBeInTheDocument();
+    const header = screen.getAllByRole("banner")[0];
+    expect(header).toHaveTextContent("sample / lumen-store");
+    expect(header).toHaveTextContent("Sample");
   });
 
   it("leaves the banner out of the explorer for analysis graphs", () => {
@@ -479,5 +481,32 @@ describe("insights dashboard", () => {
     const details = screen.getByRole("complementary", { name: "Details" });
     await user.click(within(details).getByRole("button", { name: /^src\/server/ }));
     expect(useExplorerStore.getState().filters.folder).toBe("src/server");
+  });
+});
+
+describe("workspace panels and lenses", () => {
+  it("collapses the side panels from the header and the keyboard", async () => {
+    const user = userEvent.setup();
+    render(<ExplorerShell graph={graph} />);
+    const files = screen.getByRole("complementary", { name: "Files" });
+    await user.click(screen.getByRole("button", { name: /Files/ }));
+    expect(files.className).toContain("lg:hidden");
+    expect(useExplorerStore.getState().panels.files).toBe(false);
+    await user.keyboard("]");
+    expect(useExplorerStore.getState().panels.details).toBe(false);
+    await user.keyboard("[[");
+    expect(files.className).not.toContain("lg:hidden");
+  });
+
+  it("lights a hotspot lens and explains it in the map key", async () => {
+    const user = userEvent.setup();
+    render(<ExplorerShell graph={graph} />);
+    await user.click(screen.getByRole("button", { name: "Complexity" }));
+    expect(useExplorerStore.getState().lens).toBe("complexity");
+    expect(screen.getByRole("list", { name: "Legend" })).toHaveTextContent(
+      "The most complex files, by cyclomatic complexity",
+    );
+    await user.click(screen.getByRole("button", { name: "How to read the city +" }));
+    expect(screen.getByText("Cyclomatic complexity")).toBeInTheDocument();
   });
 });
