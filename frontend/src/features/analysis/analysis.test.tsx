@@ -220,7 +220,7 @@ describe("analysis details in the inspector", () => {
     expect(
       within(details).getByText("No files depend on each other in a loop."),
     ).toBeInTheDocument();
-    expect(within(details).getByText(/1 files had syntax errors/)).toBeInTheDocument();
+    expect(within(details).getByText(/1 files couldn’t be fully parsed/)).toBeInTheDocument();
   });
 
   it("shows measured metrics for a selected file", async () => {
@@ -240,7 +240,7 @@ describe("analysis details in the inspector", () => {
     const details = await renderComplete();
     const files = screen.getByRole("complementary", { name: "Files" });
     await user.click(within(files).getByRole("button", { name: /^broken\.ts/ }));
-    expect(within(details).getByText(/has a syntax error/)).toBeInTheDocument();
+    expect(within(details).getByText(/couldn’t parse part of this file/)).toBeInTheDocument();
   });
 });
 

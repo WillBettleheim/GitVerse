@@ -118,7 +118,7 @@ export function AnalysisOverview({
           ))}
           {analysis.filesWithParseErrors > 0 && (
             <li className="text-amber">
-              {analysis.filesWithParseErrors} files had syntax errors and may be incomplete
+              {analysis.filesWithParseErrors} files couldn’t be fully parsed and may be incomplete
             </li>
           )}
           <li className="text-faint">

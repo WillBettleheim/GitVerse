@@ -107,8 +107,8 @@ export function FileInspector({ file }: { file: FileNode }) {
 
       {metrics?.parseError && (
         <p className="mt-3 text-xs leading-relaxed text-amber">
-          This file has a syntax error. The parser recovered, but some imports or counts may be
-          missing.
+          Tree-sitter couldn’t parse part of this file: either a syntax error, or newer syntax its
+          grammar doesn’t support yet. It recovered, but some imports or counts may be missing.
         </p>
       )}
       {!building && (
