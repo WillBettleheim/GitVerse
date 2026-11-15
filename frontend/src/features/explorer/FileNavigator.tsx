@@ -102,7 +102,7 @@ export function FileNavigator() {
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Search by name or path…"
           aria-label="Search files"
-          className="h-9 w-full rounded border border-line bg-void px-3 text-sm placeholder:text-faint focus:border-cyan/60 focus:outline-none"
+          className="h-9 w-full rounded-md border border-line bg-void/70 px-3 text-sm placeholder:text-faint transition-colors focus:border-cyan/60 focus:bg-void focus:outline-none"
         />
         <SearchFilters />
         {search.active && (
@@ -120,7 +120,7 @@ export function FileNavigator() {
           </p>
         )}
       </div>
-      <div ref={list} className="min-h-0 flex-1 overflow-y-auto py-2">
+      <div ref={list} className="relative min-h-0 flex-1 overflow-y-auto py-2">
         {groups.length === 0 && (
           <p className="px-4 py-3 text-sm text-faint">
             No files match{query.trim() ? ` “${query.trim()}”` : " these filters"}.
