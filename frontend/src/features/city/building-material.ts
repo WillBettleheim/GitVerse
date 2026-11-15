@@ -26,7 +26,12 @@ const vertexShader = /* glsl */ `
       length(instanceMatrix[1].xyz),
       length(instanceMatrix[2].xyz)
     );
-    vTint = instanceColor;
+    // Declared by Three.js only once a colour is set: a mesh with no instances has none.
+    #ifdef USE_INSTANCING_COLOR
+      vTint = instanceColor;
+    #else
+      vTint = vec3(1.0);
+    #endif
     vStyle = aStyle;
     vec4 world = modelMatrix * instanceMatrix * vec4(position, 1.0);
     vRadial = length(world.xz) / uRadius;

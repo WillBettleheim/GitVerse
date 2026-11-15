@@ -162,7 +162,12 @@ const arrowVertexShader = /* glsl */ `
   uniform float uViewportHeight;
   varying vec3 vColor;
   void main() {
-    vColor = instanceColor;
+    // Declared by Three.js only once a colour is set: a mesh with no instances has none.
+    #ifdef USE_INSTANCING_COLOR
+      vColor = instanceColor;
+    #else
+      vColor = vec3(1.0);
+    #endif
     float worldPerPixel = 2.0 / (projectionMatrix[1][1] * uViewportHeight);
     vec4 world = modelMatrix * instanceMatrix * vec4(position * uSizePx * worldPerPixel, 1.0);
     gl_Position = projectionMatrix * viewMatrix * world;

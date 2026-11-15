@@ -17,7 +17,12 @@ const beaconVertex = /* glsl */ `
   uniform float uViewportHeight;
   varying vec3 vTint;
   void main() {
-    vTint = instanceColor;
+    // Declared by Three.js only once a colour is set: a mesh with no instances has none.
+    #ifdef USE_INSTANCING_COLOR
+      vTint = instanceColor;
+    #else
+      vTint = vec3(1.0);
+    #endif
     float worldPerPixel = 2.0 / (projectionMatrix[1][1] * uViewportHeight);
     // A fixed world width up close, but never thinner than a visible line from far out.
     float width = max(uWidth, uMinWidthPx * worldPerPixel);
@@ -106,7 +111,12 @@ const glowVertex = /* glsl */ `
   varying vec3 vTint;
   void main() {
     vUv = uv;
-    vTint = instanceColor;
+    // Declared by Three.js only once a colour is set: a mesh with no instances has none.
+    #ifdef USE_INSTANCING_COLOR
+      vTint = instanceColor;
+    #else
+      vTint = vec3(1.0);
+    #endif
     gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0);
   }
 `;
