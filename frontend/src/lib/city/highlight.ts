@@ -21,6 +21,8 @@ export type HighlightState =
   | "match"
   /** Named by AI Architect's latest answer, with nothing selected or searched. */
   | "insight"
+  /** Lit by the chosen hotspot lens, with nothing selected or searched. */
+  | "lens"
   /** Time travel: what happened to this file since the previous snapshot. */
   | "added"
   | "modified"
@@ -39,6 +41,8 @@ export interface HighlightContext {
   cycle?: ReadonlySet<string> | null;
   /** Search results. When set and nothing is selected, everything else dims. */
   matches?: ReadonlySet<string> | null;
+  /** A hotspot lens. Shown when nothing is selected, hovered or searched, before AI insights. */
+  lens?: ReadonlySet<string> | null;
   /** Files AI Architect pointed to. Shown when nothing is selected, hovered or searched. */
   insights?: ReadonlySet<string> | null;
   /** Time travel changes. Shown when nothing is selected, hovered or searched. */
@@ -56,6 +60,10 @@ export function computeHighlight(
     const matches = context.matches;
     const changes = context.changes;
     const insights = context.insights;
+    const lens = context.lens;
+    if (!matches && lens) {
+      return { activeId: null, stateOf: (id) => (lens.has(id) ? "lens" : "dimmed") };
+    }
     if (!matches && insights && insights.size > 0) {
       return { activeId: null, stateOf: (id) => (insights.has(id) ? "insight" : "dimmed") };
     }
