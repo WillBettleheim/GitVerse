@@ -12,6 +12,8 @@ import {
 import { ambientOpacity, selectAmbientConnections } from "@/lib/city/arcs";
 import { cameraDistance } from "@/lib/city/camera";
 import { computeHighlight } from "@/lib/city/highlight";
+import { lensFiles } from "@/lib/city/lens";
+import { computeInsights } from "@/lib/graph/insights";
 import type { Building, CityLayout } from "@/lib/city/layout";
 import {
   detectQualityTier,
@@ -77,6 +79,7 @@ export default function CityCanvas({ graph, city, mode, fallback }: CityCanvasPr
   const stopCinematic = useExplorerStore((s) => s.stopCinematic);
   const setRenderInfo = useExplorerStore((s) => s.setRenderInfo);
   const spotlight = useArchitectStore((s) => (interactive ? s.spotlight : null));
+  const lensKind = useExplorerStore((s) => (interactive ? s.lens : "none"));
 
   const [tier, setTier] = useState<QualityTier>(() => readDevice(graph.files.length));
   const preset = QUALITY_PRESETS[tier];
@@ -91,21 +94,29 @@ export default function CityCanvas({ graph, city, mode, fallback }: CityCanvasPr
   const transition = useCityTransition(city, interactive, reducedMotion);
   const changeKinds = transition.shown?.changes.kinds ?? null;
   const insights = useMemo(() => (spotlight ? new Set(spotlight.files) : null), [spotlight]);
+  const lens = useMemo(
+    () =>
+      lensKind === "none"
+        ? null
+        : lensFiles(lensKind, computeInsights(graph, adjacency, cycles), cycles),
+    [lensKind, graph, adjacency, cycles],
+  );
   const highlight = useMemo(
     () =>
       computeHighlight(adjacency, selectedId, hoveredId, {
         reach: selection.reach,
         cycle: selection.cycle,
         matches,
+        lens,
         insights,
         changes: changeKinds,
       }),
-    [adjacency, selectedId, hoveredId, selection, matches, insights, changeKinds],
+    [adjacency, selectedId, hoveredId, selection, matches, lens, insights, changeKinds],
   );
   const addedEdges = transition.shown?.addedEdges;
   const active = useMemo(() => {
     const edges = activeEdges(city, selection, hoveredId);
-    if (edges.length > 0 || matches) return edges;
+    if (edges.length > 0 || matches || lens) return edges;
     if (spotlight && spotlight.edges.length > 0) {
       // An answer's relationships, drawn only where the city really has that import.
       const real = new Set(city.connections.map((c) => `${c.source}\n${c.target}`));
@@ -119,7 +130,7 @@ export default function CityCanvas({ graph, city, mode, fallback }: CityCanvasPr
     return addedEdges
       .filter((e) => present.has(e.source) && present.has(e.target))
       .map((e) => ({ ...e, role: "added" as const }));
-  }, [city, selection, hoveredId, addedEdges, matches, spotlight]);
+  }, [city, selection, hoveredId, addedEdges, matches, lens, spotlight]);
 
   const byId = useMemo(() => new Map(city.buildings.map((b) => [b.id, b])), [city.buildings]);
   const selected = selectedId ? (byId.get(selectedId) ?? null) : null;
@@ -184,7 +195,8 @@ export default function CityCanvas({ graph, city, mode, fallback }: CityCanvasPr
   const frameloop = !visible || covered ? "never" : animated ? "always" : "demand";
 
   const distance = useMemo(() => cameraDistance(city.bounds), [city.bounds]);
-  const dimmed = highlight.activeId !== null || matches !== null || Boolean(insights?.size);
+  const dimmed =
+    highlight.activeId !== null || matches !== null || lens !== null || Boolean(insights?.size);
   // Bigger cities are viewed from further out, so beacons need more height to stay visible.
   const accentScale = Math.max(1, city.bounds.radius / ACCENT_REFERENCE_RADIUS);
 
@@ -276,6 +288,13 @@ export default function CityCanvas({ graph, city, mode, fallback }: CityCanvasPr
             <HeroRig bounds={city.bounds} reducedMotion={reducedMotion} />
           )}
         </Canvas>
+        {interactive && (
+          // Atmosphere: a horizon glow and a vignette, drawn over the canvas and never over data.
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_55%_at_50%_115%,rgb(124_58_237/0.16),transparent_70%),radial-gradient(ellipse_70%_60%_at_50%_45%,transparent_55%,rgb(2_4_12/0.55))]"
+          />
+        )}
         <div
           ref={labelOverlay}
           aria-hidden="true"
