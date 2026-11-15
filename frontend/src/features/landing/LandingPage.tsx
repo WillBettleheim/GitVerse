@@ -39,16 +39,23 @@ const MAPPING: { code: string; city: string; rule: string; status: Status }[] = 
   },
   {
     code: "Commit history",
-    city: "City growth",
-    rule: "Scrub through time and watch the architecture change.",
-    status: "planned",
+    city: "Time travel",
+    rule: "Step through real commits: new files rise, removed ones sink, changed ones resize.",
+    status: "live",
   },
   {
-    code: "Claude",
-    city: "Your guide",
-    rule: "Ask why a district exists and get answers grounded in the graph.",
-    status: "planned",
+    code: "Your questions",
+    city: "AI Architect",
+    rule: "Ask about the architecture. Answers cite the analysis, mark what is inferred, and light up the files they name.",
+    status: "live",
   },
+];
+
+/** Real public repositories. Each link starts a real analysis; nothing here is precomputed. */
+const FEATURED: { repo: string; blurb: string }[] = [
+  { repo: "pmndrs/zustand", blurb: "Small state management" },
+  { repo: "sindresorhus/ky", blurb: "HTTP client" },
+  { repo: "honojs/hono", blurb: "Web framework" },
 ];
 
 const PIPELINE: { step: string; detail: string; status: Status }[] = [
@@ -81,7 +88,7 @@ const primaryCta =
 export function LandingPage({ graph }: { graph: CodeGraph }) {
   return (
     <div className="bg-void">
-      <header className="absolute inset-x-0 top-0 z-20">
+      <header className="absolute inset-x-0 top-0 z-20 bg-gradient-to-b from-void/80 to-transparent">
         <nav
           aria-label="Main"
           className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-8"
@@ -114,20 +121,40 @@ export function LandingPage({ graph }: { graph: CodeGraph }) {
             className="pointer-events-none absolute inset-0 bg-gradient-to-t from-void via-void/75 to-void/10 lg:bg-gradient-to-r lg:from-void lg:via-void/70 lg:to-transparent"
           />
           <div className="relative z-10 mx-auto w-full max-w-7xl px-4 pt-24 pb-20 sm:px-8 lg:pb-8">
-            <p className="font-mono text-xs tracking-wide text-cyan">
-              Now analyzing public JavaScript and TypeScript repositories
+            <p className="glass inline-flex items-center gap-2 rounded-full px-3 py-1 font-mono text-[11px] tracking-wide text-muted">
+              <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-cyan shadow-[0_0_8px_var(--color-cyan)]" />
+              Analyzing public JavaScript and TypeScript repositories
             </p>
-            <h1 className="mt-5 max-w-3xl text-5xl leading-[1.02] font-semibold tracking-tight text-balance sm:text-7xl">
-              Explore Code Like a Universe.
+            <h1 className="mt-6 max-w-3xl text-5xl leading-[1.02] font-semibold tracking-tight text-balance sm:text-7xl">
+              Explore Code <span className="holo-text">Like a Universe.</span>
             </h1>
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted">
               GitVerse rebuilds a codebase as a 3D city you can fly through. Folders are districts,
-              files are buildings, and imports light up the sky between them.
+              files are buildings, imports light up the sky between them, and an AI architect
+              answers questions with the evidence to back them.
             </p>
             <div className="mt-9">
               <RepoInputForm />
             </div>
-            <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm">
+            <div className="mt-6">
+              <p className="font-mono text-[11px] tracking-wide text-faint uppercase">
+                Try a real repository
+              </p>
+              <ul className="mt-2 flex flex-wrap gap-2">
+                {FEATURED.map(({ repo, blurb }) => (
+                  <li key={repo}>
+                    <Link
+                      href={`/explore/gh/${repo}`}
+                      className="glass group inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors hover:border-cyan/50"
+                    >
+                      <span className="font-mono text-text group-hover:text-cyan">{repo}</span>
+                      <span className="text-xs text-faint">{blurb}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm">
               <Link href="/explore/demo" className="text-text transition-colors hover:text-cyan">
                 Or explore the demo city →
               </Link>
