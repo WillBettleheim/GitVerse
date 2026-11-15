@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useExplorerData, fileName } from "@/features/explorer/explorer-data";
 import { useExplorerStore } from "@/features/explorer/store";
 import { useTimeTravelStore } from "@/features/timetravel/store";
@@ -13,6 +13,7 @@ import {
   type Evidence,
 } from "@/lib/architect/api";
 import type { CodeGraph } from "@/lib/graph/schema";
+import { splitMentions } from "@/lib/architect/mentions";
 import { spotlightFor, useArchitectStore, type Turn } from "./store";
 
 export const SUGGESTED_QUESTIONS = [
@@ -34,7 +35,7 @@ export function ArchitectPanel() {
   const finish = useArchitectStore((s) => s.finish);
   const setSpotlight = useArchitectStore((s) => s.setSpotlight);
   const selectedId = useExplorerStore((s) => s.selectedId);
-  const snapshots = useTimeTravelStore((s) => s.snapshots);
+  const setLens = useExplorerStore((s) => s.setLens);
   const [draft, setDraft] = useState("");
   const controller = useRef<AbortController | null>(null);
   const list = useRef<HTMLOListElement>(null);
@@ -67,14 +68,19 @@ export function ArchitectPanel() {
           commit: repository.commitSha,
           question: text,
           focus,
-          snapshots: Object.entries(snapshots)
+          // Read when asked rather than subscribed to: history analyses report progress often,
+          // and the panel shouldn't re-render for each update.
+          snapshots: Object.entries(useTimeTravelStore.getState().snapshots)
             .filter(([, s]) => s.status === "ready")
             .map(([sha]) => sha),
         },
         controller.current.signal,
       );
       finish(id, { status: "done", answer });
-      setSpotlight(spotlightFor(id, answer));
+      const spotlight = spotlightFor(id, answer);
+      setSpotlight(spotlight);
+      // The answer's files take over the city, rather than hiding behind a hotspot lens.
+      if (spotlight) setLens("none");
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
       finish(id, {
@@ -197,14 +203,28 @@ function scrollPanelTo(item: HTMLElement) {
 function TurnView({ turn, graph, onRetry }: { turn: Turn; graph: CodeGraph; onRetry: () => void }) {
   return (
     <li className="flex flex-col gap-2">
-      <p className="self-end rounded-md bg-raised px-2.5 py-1.5 text-sm">{turn.question}</p>
+      <p className="max-w-[90%] self-end rounded-lg rounded-br-sm border border-cyan/20 bg-cyan/5 px-3 py-1.5 text-sm">
+        {turn.question}
+      </p>
       {turn.focus && (
         <p className="self-end font-mono text-[10px] text-faint">about {turn.focus}</p>
       )}
       {turn.status === "loading" && (
-        <p role="status" className="animate-pulse text-xs text-muted">
-          Gathering evidence and asking the model…
-        </p>
+        <div role="status" className="glass rounded-lg p-3">
+          <p className="flex items-center gap-2 text-xs text-muted">
+            <span aria-hidden="true" className="h-1.5 w-1.5 animate-pulse rounded-full bg-violet" />
+            Gathering evidence and asking the model…
+          </p>
+          <div aria-hidden="true" className="mt-3 space-y-1.5">
+            {[92, 78, 55].map((width) => (
+              <div
+                key={width}
+                className="h-2 animate-pulse rounded bg-gradient-to-r from-cyan/15 via-violet/15 to-transparent"
+                style={{ width: `${width}%` }}
+              />
+            ))}
+          </div>
+        </div>
       )}
       {turn.status === "error" && (
         <div role="alert" className="rounded border border-amber/40 bg-amber/5 p-2.5 text-xs">
@@ -240,6 +260,22 @@ function AnswerView({
   const lit = spotlight?.turnId === turnId;
   const shownHere = answer.commitSha === graph.analysis?.repository.commitSha;
   const inCity = answer.files.map((f) => f.path).filter((p) => present.has(p));
+  const [evidenceOpen, setEvidenceOpen] = useState(answer.mode === "evidence_only");
+  const [focusedEvidence, setFocusedEvidence] = useState<string | null>(null);
+  const evidenceList = useRef<HTMLUListElement>(null);
+  const known = useMemo(() => new Set(present.keys()), [present]);
+
+  /** Moves the camera to a building and selects it, keeping AI Architect open. */
+  const locate = (path: string) => select(path);
+
+  const showEvidence = (id: string) => {
+    setEvidenceOpen(true);
+    setFocusedEvidence(id);
+    requestAnimationFrame(() => {
+      const item = evidenceList.current?.querySelector<HTMLElement>(`[data-evidence="${id}"]`);
+      if (item) scrollPanelTo(item);
+    });
+  };
 
   const openInInspector = (path: string) => {
     select(path);
@@ -249,7 +285,7 @@ function AnswerView({
   return (
     <article
       aria-label="Answer"
-      className="flex flex-col gap-3 rounded-md border border-line bg-panel p-3"
+      className="glass relative flex flex-col gap-3 overflow-hidden rounded-lg p-3 before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-gradient-to-r before:from-cyan/50 before:via-violet/40 before:to-transparent"
     >
       <ModeBadge answer={answer} />
       {!shownHere && (
@@ -259,7 +295,23 @@ function AnswerView({
       )}
 
       {answer.answer && (
-        <p className="text-sm leading-relaxed whitespace-pre-line">{answer.answer}</p>
+        <p className="text-sm leading-relaxed whitespace-pre-line">
+          {splitMentions(answer.answer, known).map((segment, index) =>
+            segment.kind === "text" ? (
+              segment.text
+            ) : (
+              <button
+                key={index}
+                type="button"
+                onClick={() => locate(segment.path)}
+                title="Show this file in the city"
+                className="rounded bg-cyan/10 px-1 font-mono text-[12px] text-cyan hover:bg-cyan/20"
+              >
+                {segment.text}
+              </button>
+            ),
+          )}
+        </p>
       )}
 
       {answer.claims.length > 0 && (
@@ -270,7 +322,12 @@ function AnswerView({
               <span className="min-w-0">
                 {claim.text}
                 {claim.evidence.map((id) => (
-                  <EvidenceChip key={id} item={evidence.get(id)} id={id} />
+                  <EvidenceChip
+                    key={id}
+                    item={evidence.get(id)}
+                    id={id}
+                    onShow={() => showEvidence(id)}
+                  />
                 ))}
               </span>
             </li>
@@ -326,6 +383,16 @@ function AnswerView({
                   >
                     {file.path}
                   </button>
+                  <button
+                    type="button"
+                    disabled={!present.has(file.path)}
+                    onClick={() => locate(file.path)}
+                    aria-label={`Locate ${file.path} in the city`}
+                    title="Fly to this building"
+                    className="ml-auto shrink-0 font-mono text-[10px] text-faint hover:text-text disabled:opacity-40"
+                  >
+                    Locate ⌖
+                  </button>
                 </div>
                 <p className="mt-0.5 text-muted">{file.reason}</p>
                 <LineLinks graph={graph} path={file.path} lines={file.lines} />
@@ -376,13 +443,22 @@ function AnswerView({
 
       {answer.evidence.length > 0 && (
         // Without an explanation, the evidence is the answer, so it starts open.
-        <details className="text-xs" open={answer.mode === "evidence_only"}>
+        <details
+          className="text-xs"
+          open={evidenceOpen}
+          onToggle={(event) => setEvidenceOpen(event.currentTarget.open)}
+        >
           <summary className="cursor-pointer text-faint hover:text-text">
             Evidence ({answer.evidence.length})
           </summary>
-          <ul className="mt-2 flex flex-col gap-2">
+          <ul ref={evidenceList} className="mt-2 flex flex-col gap-2">
             {answer.evidence.map((item) => (
-              <EvidenceItem key={item.id} item={item} graph={graph} />
+              <EvidenceItem
+                key={item.id}
+                item={item}
+                graph={graph}
+                focused={focusedEvidence === item.id}
+              />
             ))}
           </ul>
         </details>
@@ -436,14 +512,27 @@ function BasisBadge({
   );
 }
 
-function EvidenceChip({ id, item }: { id: string; item: Evidence | undefined }) {
+function EvidenceChip({
+  id,
+  item,
+  onShow,
+}: {
+  id: string;
+  item: Evidence | undefined;
+  onShow: () => void;
+}) {
+  if (!item) {
+    return <span className="ml-1 font-mono text-[10px] text-faint">{id}</span>;
+  }
   return (
-    <span
-      title={item ? item.title : undefined}
-      className="ml-1 rounded bg-raised px-1 font-mono text-[10px] text-faint"
+    <button
+      type="button"
+      onClick={onShow}
+      title={`Show evidence ${id}: ${item.title}`}
+      className="ml-1 rounded bg-raised px-1 font-mono text-[10px] text-faint transition-colors hover:bg-violet/20 hover:text-text"
     >
       {id}
-    </span>
+    </button>
   );
 }
 
@@ -499,13 +588,24 @@ function LineLinks({
   );
 }
 
-function EvidenceItem({ item, graph }: { item: Evidence; graph: CodeGraph }) {
+function EvidenceItem({
+  item,
+  graph,
+  focused,
+}: {
+  item: Evidence;
+  graph: CodeGraph;
+  focused: boolean;
+}) {
   const href =
     item.path && item.lineStart
       ? sourceLineUrl(graph, item.path, item.lineStart, item.lineEnd ?? item.lineStart)
       : null;
   return (
-    <li className="rounded border border-line p-2">
+    <li
+      data-evidence={item.id}
+      className={`rounded-md border p-2 transition-colors ${focused ? "border-violet/60 bg-violet/5" : "border-line"}`}
+    >
       <p className="font-mono text-[11px]">
         <span className="text-faint">{item.id}</span>{" "}
         <span className="text-text">{item.title}</span>

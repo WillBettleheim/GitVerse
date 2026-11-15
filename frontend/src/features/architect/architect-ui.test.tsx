@@ -261,3 +261,35 @@ describe("AI Architect", () => {
     expect(screen.queryByRole("tab", { name: "AI Architect" })).not.toBeInTheDocument();
   });
 });
+
+describe("AI Architect in the city", () => {
+  it("links files the answer mentions to their buildings", async () => {
+    mockApi();
+    const { user, answer } = await askFirstSuggestion();
+    const prose = within(answer).getByText(/imported directly by three files/);
+    await user.click(within(prose).getByRole("button", { name: "src/utils/helper.ts" }));
+    expect(useExplorerStore.getState().selectedId).toBe("src/utils/helper.ts");
+    // Locating keeps AI Architect open.
+    expect(screen.getByRole("tab", { name: /AI Architect/ })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+  });
+
+  it("opens the evidence a claim cites", async () => {
+    mockApi();
+    const { user, answer } = await askFirstSuggestion();
+    const claims = within(answer).getByRole("list", { name: "Claims" });
+    await user.click(within(claims).getAllByRole("button", { name: "E1" })[0]);
+    const item = answer.querySelector('[data-evidence="E1"]');
+    expect(item?.closest("details")).toHaveAttribute("open");
+    expect(item?.className).toContain("border-violet");
+  });
+
+  it("locates a listed file without leaving the conversation", async () => {
+    mockApi();
+    const { user, answer } = await askFirstSuggestion();
+    await user.click(within(answer).getByRole("button", { name: "Locate src/app.tsx in the city" }));
+    expect(useExplorerStore.getState().selectedId).toBe("src/app.tsx");
+  });
+});
