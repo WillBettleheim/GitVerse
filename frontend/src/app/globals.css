@@ -1,7 +1,8 @@
 @import "tailwindcss";
 
 @theme {
-  --color-void: #05070f;
+  --color-void: #04060d;
+  --color-midnight: #070b19;
   --color-ink: #0a0f1e;
   --color-panel: #0d1426;
   --color-raised: #141d35;
@@ -14,6 +15,7 @@
   --color-violet: #a78bfa;
   --color-amber: #fbbf24;
   --color-rose: #f472b6;
+  --color-hot: #fde68a;
 
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
@@ -21,6 +23,33 @@
 
 :root {
   color-scheme: dark;
+}
+
+/* Surfaces. Glass is used sparingly: for panels that float over the city, not for everything. */
+@utility glass {
+  background: color-mix(in srgb, var(--color-panel) 78%, transparent);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  border: 1px solid color-mix(in srgb, var(--color-line) 85%, transparent);
+}
+
+/* The app chrome: near-black with a faint cyan-to-violet wash along its edge. */
+@utility chrome {
+  background:
+    linear-gradient(90deg, rgb(34 211 238 / 0.05), transparent 28%, transparent 72%, rgb(167 139 250 / 0.06)),
+    var(--color-midnight);
+}
+
+/* A one-pixel cyan-to-violet hairline, for the edges that matter most. */
+@utility holo-edge {
+  border-image: linear-gradient(90deg, rgb(34 211 238 / 0.45), rgb(31 42 71), rgb(167 139 250 / 0.45)) 1;
+}
+
+@utility holo-text {
+  background: linear-gradient(100deg, #e7ecf7 0%, #a5f3fc 45%, #c4b5fd 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 html {
