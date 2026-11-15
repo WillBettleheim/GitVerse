@@ -45,6 +45,21 @@ function statusText(snapshot: Snapshot | undefined): string {
   }
 }
 
+/** Stops between month labels, so neighbouring months never overlap. */
+const MIN_LABEL_GAP = 3;
+
+/** A label where a new month starts, skipped when the previous label is too close. */
+export function spacedMonthLabels(commits: readonly Commit[]): (string | null)[] {
+  let lastShown = -MIN_LABEL_GAP;
+  return commits.map((commit, index) => {
+    const month = monthLabel(commit.committedAt);
+    const isNew = month !== null && month !== monthLabel(commits[index - 1]?.committedAt);
+    if (!isNew || index - lastShown < MIN_LABEL_GAP) return null;
+    lastShown = index;
+    return month;
+  });
+}
+
 /** The horizontal history: oldest left, newest right, one stop per commit. */
 export function TimelineBar({ controls }: { controls: TimeTravelControls }) {
   const commits = useTimeTravelStore((s) => s.commits);
@@ -68,6 +83,7 @@ export function TimelineBar({ controls }: { controls: TimeTravelControls }) {
   const newestFirst = useMemo(() => commits.map((c) => c.sha), [commits]);
   const oldestFirst = useMemo(() => [...commits].reverse(), [commits]);
   const byId = useMemo(() => new Map(commits.map((c) => [c.sha, c])), [commits]);
+  const monthLabels = useMemo(() => spacedMonthLabels(oldestFirst), [oldestFirst]);
   const readyCount = Object.values(snapshots).filter((s) => s.status === "ready").length;
 
   const focusCommit = (sha: string) =>
@@ -113,7 +129,7 @@ export function TimelineBar({ controls }: { controls: TimeTravelControls }) {
   return (
     <section
       aria-label="Time travel"
-      className="absolute inset-x-0 bottom-0 z-20 border-t border-line bg-ink/95 backdrop-blur"
+      className="chrome holo-edge absolute inset-x-0 bottom-0 z-20 border-t"
     >
       <div className="flex flex-wrap items-center gap-1.5 px-3 pt-2">
         <button
@@ -154,7 +170,7 @@ export function TimelineBar({ controls }: { controls: TimeTravelControls }) {
         >
           ▶
         </button>
-        <div role="group" aria-label="Playback speed" className="flex">
+        <div role="group" aria-label="Playback speed" className="flex max-sm:hidden">
           {SPEEDS.map((value) => (
             <button
               key={value}
@@ -179,7 +195,8 @@ export function TimelineBar({ controls }: { controls: TimeTravelControls }) {
           Compare
         </button>
         <p className="ml-1 min-w-0 flex-1 truncate font-mono text-[11px] text-faint">
-          {readyCount} of {commits.length} commits analyzed · {hint}
+          {readyCount} of {commits.length} commits analyzed
+          <span className="max-md:hidden"> · {hint}</span>
         </p>
       </div>
 
@@ -221,9 +238,8 @@ export function TimelineBar({ controls }: { controls: TimeTravelControls }) {
           </button>
         )}
         {oldestFirst.map((commit, index) => {
-          const previous = oldestFirst[index - 1];
-          const month = monthLabel(commit.committedAt);
-          const newMonth = month !== null && month !== monthLabel(previous?.committedAt);
+          const month = monthLabels[index];
+          const newMonth = month !== null;
           const isShown = commit.sha === current;
           const marker =
             compare?.base === commit.sha ? "A" : compare?.head === commit.sha ? "B" : null;
