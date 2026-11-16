@@ -294,6 +294,8 @@ backend/app/
   analysis/pipeline.py Orchestration
   analysis/jobs.py     Background jobs, concurrency, de-duplication
   analysis/cache.py    Memory and disk result cache
+  analysis/parallel.py Parser worker processes
+  analysis/disk.py     Disk budgets for the caches
   analysis/evidence.py Symbol and import index, and source stored by blob SHA
   assistant/           AI Architect: retrieval, prompt, Claude client, answer checks, service
   schemas/assistant.py AI Architect request and answer contract
