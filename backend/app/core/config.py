@@ -43,6 +43,9 @@ class Settings(BaseSettings):
     history_requests_per_minute: int = Field(default=30, gt=0)
     # Finished results, keyed by repository and commit. Empty disables the disk cache.
     cache_dir: str = ".cache/analyses"
+    # Disk budgets. Past them, the least recently used entries are removed.
+    cache_max_mb: int = Field(default=1024, gt=0)
+    evidence_max_mb: int = Field(default=2048, gt=0)
     github_token: SecretStr | None = None
     # Server-side only. Without it, AI Architect returns the evidence it finds, unexplained.
     anthropic_api_key: SecretStr | None = None

@@ -14,6 +14,7 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from app.analysis import ANALYZER_VERSION
+from app.analysis.disk import DiskBudget, touch
 from app.schemas.graph import CodeGraph
 
 
@@ -22,8 +23,15 @@ def cache_key(full_name: str, sha: str) -> str:
 
 
 class ResultCache:
-    def __init__(self, directory: str | None, memory_entries: int = 16) -> None:
+    def __init__(
+        self, directory: str | None, memory_entries: int = 16, max_disk_bytes: int | None = None
+    ) -> None:
         self._directory = Path(directory) if directory else None
+        self._budget = (
+            DiskBudget(self._directory, max_disk_bytes)
+            if self._directory is not None and max_disk_bytes is not None
+            else None
+        )
         self._memory: OrderedDict[str, CodeGraph] = OrderedDict()
         self._memory_entries = memory_entries
 
@@ -39,6 +47,7 @@ class ResultCache:
         except (OSError, ValueError, ValidationError):
             # A damaged or outdated entry is just a miss.
             return None
+        touch(path)
         self._remember(key, graph)
         return graph
 
@@ -58,6 +67,8 @@ class ResultCache:
         except BaseException:
             Path(temporary).unlink(missing_ok=True)
             raise
+        if self._budget is not None:
+            self._budget.maybe_prune()
 
     def _remember(self, key: str, graph: CodeGraph) -> None:
         self._memory[key] = graph

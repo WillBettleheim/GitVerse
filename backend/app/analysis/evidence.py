@@ -20,6 +20,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from app.analysis.disk import DiskBudget, touch
 from app.analysis.graph import ResolvedImport
 from app.analysis.parser import ParsedFile, SymbolKind
 
@@ -103,9 +104,18 @@ def blob_sha(content: bytes) -> str:
 
 class EvidenceStore:
     def __init__(
-        self, directory: str | None, memory_bytes: int = DEFAULT_MEMORY_BYTES, indexes: int = 16
+        self,
+        directory: str | None,
+        memory_bytes: int = DEFAULT_MEMORY_BYTES,
+        indexes: int = 16,
+        max_disk_bytes: int | None = None,
     ) -> None:
         self._directory = Path(directory) if directory else None
+        self._budget = (
+            DiskBudget(self._directory, max_disk_bytes)
+            if self._directory is not None and max_disk_bytes is not None
+            else None
+        )
         self._indexes: OrderedDict[str, RepositoryIndex] = OrderedDict()
         self._index_entries = indexes
         # Only used without a directory.
@@ -120,6 +130,8 @@ class EvidenceStore:
         path = self._index_path(key)
         if path is not None:
             _write_atomic(path, index.model_dump_json().encode())
+        if self._budget is not None:
+            self._budget.maybe_prune()
 
     def index(self, key: str) -> RepositoryIndex | None:
         if key in self._indexes:
@@ -132,6 +144,7 @@ class EvidenceStore:
             index = RepositoryIndex.model_validate(json.loads(path.read_text("utf-8")))
         except (OSError, ValueError, ValidationError):
             return None
+        touch(path)
         self._remember(key, index)
         return index
 
@@ -144,9 +157,11 @@ class EvidenceStore:
             content = self._blobs.get(blob)
         else:
             try:
-                content = self._blob_path(blob).read_bytes()
+                path = self._blob_path(blob)
+                content = path.read_bytes()
             except OSError:
                 return None
+            touch(path)
         if content is None or blob_sha(content) != blob:
             return None
         return content
