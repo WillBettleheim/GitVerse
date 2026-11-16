@@ -329,6 +329,19 @@ Built and tested:
 - Users see only prepared error messages. Unexpected exceptions are logged server-side and reported
   as a generic failure.
 - Request bodies are capped, and a declared `Content-Length` is required.
+- Caches can't fill the disk: results and AI Architect's evidence each have a size budget
+  (`GITVERSE_CACHE_MAX_MB`, `GITVERSE_EVIDENCE_MAX_MB`), past which the least recently used
+  entries are removed. Only the 24 most recent finished jobs keep their graph in memory; older
+  ones are read back from the cache.
+- A file whose path is longer than the graph allows is skipped and counted, rather than failing
+  the whole analysis.
+- AI Architect's retrieval runs off the event loop, so a question about a large repository never
+  stalls other requests. Its worst case on a 4,000-file repository is under a second.
+- Every API response sends `nosniff`, `X-Frame-Options: DENY`, `no-referrer` and `no-store`. The
+  frontend sends a Content-Security-Policy that allows scripts, styles and connections only from
+  itself and the configured API, forbids framing, plugins and foreign form targets, plus
+  `nosniff`, a referrer policy and a permissions policy. The interactive API docs are off when
+  `GITVERSE_ENVIRONMENT=production`.
 - **AI Architect** treats source, comments, descriptions and commit messages as untrusted. They're
   quoted to the model inside `<untrusted>` tags it is told never to obey, and any tag-like text
   inside them is defused so they can't close the block. That's one layer; the others don't rely on
@@ -350,6 +363,8 @@ Not yet built:
   share state across instances.
 - The client address comes straight from the connection. Behind a proxy, every client would share
   one address until trusted forwarding headers are configured.
-- AI Architect's evidence store has no size cap or expiry on disk yet. Clearing
-  `.cache/evidence` is safe: answers fall back to the graph, without excerpts or line numbers,
-  until the commit is analyzed again.
+- The Content-Security-Policy allows inline scripts, which Next.js needs for hydration. Nonces
+  would remove that allowance but require dynamic rendering of every page.
+- There are no user accounts. Anyone who can reach the API can request analyses and questions,
+  limited by per-address rate limits and concurrency caps. A public deployment needs those limits
+  set for its traffic, and trusted proxy headers configured so the limits see real addresses.

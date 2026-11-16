@@ -48,6 +48,9 @@ Demo mode doesn't need the backend. To run only the frontend, use `make dev-fron
 | `make check` | Runs lint, typecheck, test and build |
 | `make format` | Auto-formats backend code |
 
+Security checks: `make lint` includes Ruff's Bandit rules. Dependency audits run with
+`npm audit` in `frontend/` and `pip-audit` in `backend/` (`.venv/bin/pip install pip-audit`).
+
 AI Architect's evaluations run with `make test`, against fixture repositories with known answers
 and a scripted model. To grade the real model on the same cases (billed), run
 `GITVERSE_RUN_LIVE_EVALS=1 .venv/bin/pytest tests/test_architect_live_eval.py` in `backend/`
