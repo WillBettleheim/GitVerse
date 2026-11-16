@@ -37,7 +37,7 @@ import { useArchitectStore } from "@/features/architect/store";
 import { TransitionLayer } from "@/features/timetravel/TransitionLayer";
 import { useCityTransition } from "@/features/timetravel/use-city-transition";
 
-const BACKGROUND = "#05070f";
+const BACKGROUND = "#140707";
 const HERO_CONNECTION_LIMIT = 150;
 const TOOLTIP_OFFSET = 0.6;
 const ACCENT_REFERENCE_RADIUS = 45;
@@ -298,7 +298,7 @@ export default function CityCanvas({ graph, city, mode, fallback }: CityCanvasPr
           // Atmosphere: a horizon glow and a vignette, drawn over the canvas and never over data.
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_55%_at_50%_115%,rgb(124_58_237/0.16),transparent_70%),radial-gradient(ellipse_70%_60%_at_50%_45%,transparent_55%,rgb(2_4_12/0.55))]"
+            className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_55%_at_50%_115%,rgb(204_37_32/0.22),transparent_70%),radial-gradient(ellipse_45%_35%_at_80%_0%,rgb(245_215_110/0.07),transparent_70%),radial-gradient(ellipse_70%_60%_at_50%_45%,transparent_55%,rgb(12_3_3/0.6))]"
           />
         )}
         <div

@@ -110,8 +110,12 @@ const fragmentShader = /* glsl */ `
       // In a fixed isometric view, one wall in shade makes the volume readable.
       float shade = facesX ? 0.72 : 1.0;
 
+      // Walls are the district colour; windows glow gold, as bright as the building's tint, so a
+      // dimmed building's windows dim with it and highlights stay readable.
+      float brightness = max(max(vTint.r, vTint.g), vTint.b);
+      vec3 window = mix(vTint, vec3(1.0, 0.83, 0.45) * brightness, 0.62);
       color = vTint * (0.045 + gradient * 0.09);
-      color += vTint * pattern;
+      color += window * pattern;
       color += vTint * (edge * 0.35 + cap * (1.0 + landmark * 0.6));
       color *= shade;
     }

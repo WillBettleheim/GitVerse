@@ -10,15 +10,19 @@ import type { CodeGraph, FileNode } from "@/lib/graph/schema";
  * Districts nest like the folder tree: a subfolder is a raised plot inside its parent's plot.
  */
 
+/**
+ * Crimson Ember district colours: a family of warm hues (crimson, rust, wine, copper, plum) that
+ * stay distinct from each other and from every highlight colour.
+ */
 export const DISTRICT_PALETTE = [
-  "#3b82f6",
-  "#22d3ee",
-  "#8b5cf6",
-  "#6366f1",
-  "#38bdf8",
-  "#a855f7",
-  "#2dd4bf",
-  "#d946ef",
+  "#c92a2a",
+  "#d9572b",
+  "#9e1f3d",
+  "#b8452f",
+  "#8f2d63",
+  "#e07a3a",
+  "#a3243f",
+  "#c2410c",
 ] as const;
 
 /** Above this, the least important files aren't drawn, and the result says how many were cut. */

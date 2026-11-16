@@ -63,7 +63,7 @@ describe("generateCity determinism", () => {
       {
         "baseY": 0.48,
         "category": "source",
-        "color": "#a855f7",
+        "color": "#e07a3a",
         "complexity": 67,
         "depth": 5.839,
         "districtId": "src/server/services",

@@ -77,7 +77,7 @@ export const Beacons = memo(function Beacons({
       matrix.setPosition(b.x, b.baseY + b.height, b.z);
       target.setMatrixAt(index, matrix);
       const dimmed = highlight.stateOf(b.id) === "dimmed";
-      target.setColorAt(index, color.set(b.color).lerp(WHITE, 0.3).multiplyScalar(dimmed ? 0.12 : 1.15));
+      target.setColorAt(index, color.set(b.color).lerp(WHITE, 0.6).multiplyScalar(dimmed ? 0.12 : 1.2));
     });
     target.instanceMatrix.needsUpdate = true;
     if (target.instanceColor) target.instanceColor.needsUpdate = true;
@@ -104,7 +104,7 @@ export const Beacons = memo(function Beacons({
   );
 });
 
-const WHITE = new THREE.Color("#ffffff");
+const WHITE = new THREE.Color("#ffe9a8");
 
 const glowVertex = /* glsl */ `
   varying vec2 vUv;

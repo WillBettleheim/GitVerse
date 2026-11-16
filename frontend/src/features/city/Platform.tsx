@@ -34,8 +34,8 @@ const platformFragment = /* glsl */ `
   }
 
   void main() {
-    vec3 base = vec3(0.008, 0.013, 0.03);
-    vec3 accent = vec3(0.05, 0.3, 0.75);
+    vec3 base = vec3(0.03, 0.008, 0.008);
+    vec3 accent = vec3(0.75, 0.1, 0.07);
     vec3 color;
 
     if (vNormalLocal.y > 0.5) {
@@ -43,7 +43,7 @@ const platformFragment = /* glsl */ `
       vec2 toEdge = uHalf - abs(p);
       float edge = min(toEdge.x, toEdge.y);
       float falloff = 1.0 - smoothstep(0.0, 1.0, length(p / uHalf) * 0.72);
-      color = base + vec3(0.006, 0.012, 0.03) * falloff;
+      color = base + vec3(0.03, 0.006, 0.005) * falloff;
       color += accent * gridLine(p, 4.0, 0.012) * (0.035 + falloff * 0.05);
       color += accent * gridLine(p, 20.0, 0.03) * (0.08 + falloff * 0.1);
       // A bright rim, with a faint second line just inside it.
@@ -52,7 +52,7 @@ const platformFragment = /* glsl */ `
       // Corner brackets mark it as a designed object.
       vec2 corner = step(uHalf - vec2(9.0), abs(p));
       float bracket = corner.x * corner.y * (1.0 - smoothstep(0.0, 0.1, abs(edge - 0.7)));
-      color += vec3(0.1, 0.65, 0.9) * bracket;
+      color += vec3(0.95, 0.72, 0.28) * bracket;
     } else {
       // The sides fade down from a lit top edge.
       float t = clamp(vLocal.y / ${PLATFORM_THICKNESS.toFixed(1)} + 0.5, 0.0, 1.0);
@@ -75,8 +75,8 @@ const voidFragment = /* glsl */ `
     vec2 lines = 1.0 - smoothstep(vec2(0.02), vec2(0.02) + aa * 1.2, g);
     float grid = max(lines.x, lines.y);
     float fade = 1.0 - smoothstep(uRadius * 0.7, uRadius * 2.4, length(p));
-    vec3 background = vec3(0.0019, 0.0030, 0.0080);
-    vec3 color = background + vec3(0.02, 0.09, 0.22) * grid * fade * 0.5;
+    vec3 background = vec3(0.0068, 0.0021, 0.0021);
+    vec3 color = background + vec3(0.2, 0.035, 0.03) * grid * fade * 0.5;
     gl_FragColor = vec4(color, 1.0);
     #include <colorspace_fragment>
   }
