@@ -28,14 +28,15 @@ const LENS_ORDER: LensKind[] = ["complexity", "dependents", "cycles"];
  * colours in play and only those.
  */
 export function DependencyLegend({ inCycle, searching }: { inCycle: boolean; searching: boolean }) {
-  const { insights, cycles } = useExplorerData();
+  const { insights, cycles, graph } = useExplorerData();
   const selectedId = useExplorerStore((s) => s.selectedId);
   const hoveredId = useExplorerStore((s) => s.hoveredId);
   const depth = useExplorerStore((s) => s.depth);
   const direction = useExplorerStore((s) => s.direction);
   const lens = useExplorerStore((s) => s.lens);
   const setLens = useExplorerStore((s) => s.setLens);
-  const spotlight = useArchitectStore((s) => s.spotlight);
+  const stored = useArchitectStore((s) => s.spotlight);
+  const spotlight = stored?.commit === graph.analysis?.repository.commitSha ? stored : null;
   // Null follows the screen: open on larger screens, folded on phones, where space is scarce.
   const [open, setOpen] = useState<boolean | null>(null);
   const [showKey, setShowKey] = useState(false);

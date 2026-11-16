@@ -16,6 +16,8 @@ export interface Turn {
 /** What an answer lights up in the city: its files and the relationships between them. */
 export interface Spotlight {
   turnId: number;
+  /** The commit the answer was about. It only lights up that commit's city. */
+  commit: string;
   files: readonly string[];
   edges: readonly { source: string; target: string }[];
 }
@@ -37,6 +39,7 @@ export function spotlightFor(turnId: number, answer: ArchitectAnswer): Spotlight
   if (files.length === 0) return null;
   return {
     turnId,
+    commit: answer.commitSha,
     files,
     edges: answer.relationships.map(({ source, target }) => ({
       source,

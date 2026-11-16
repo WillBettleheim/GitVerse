@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import sample from "@/features/analysis/__fixtures__/analysis-sample.json";
 import { AnalysisExplorer } from "@/features/analysis/AnalysisExplorer";
@@ -291,5 +291,18 @@ describe("AI Architect in the city", () => {
     const { user, answer } = await askFirstSuggestion();
     await user.click(within(answer).getByRole("button", { name: "Locate src/app.tsx in the city" }));
     expect(useExplorerStore.getState().selectedId).toBe("src/app.tsx");
+  });
+});
+
+describe("AI highlights and time travel", () => {
+  it("only lights up the commit the answer was about", async () => {
+    mockApi();
+    await askFirstSuggestion();
+    const legend = () => screen.getByRole("list", { name: "Legend" });
+    expect(legend()).toHaveTextContent("Named in AI Architect’s answer");
+    // The same answer, seen from another commit's city.
+    const spotlight = useArchitectStore.getState().spotlight!;
+    act(() => useArchitectStore.setState({ spotlight: { ...spotlight, commit: "f".repeat(40) } }));
+    expect(legend()).not.toHaveTextContent("Named in AI Architect’s answer");
   });
 });

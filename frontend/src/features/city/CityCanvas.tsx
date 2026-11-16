@@ -78,7 +78,10 @@ export default function CityCanvas({ graph, city, mode, fallback }: CityCanvasPr
   const hover = useExplorerStore((s) => s.hover);
   const stopCinematic = useExplorerStore((s) => s.stopCinematic);
   const setRenderInfo = useExplorerStore((s) => s.setRenderInfo);
-  const spotlight = useArchitectStore((s) => (interactive ? s.spotlight : null));
+  const storedSpotlight = useArchitectStore((s) => (interactive ? s.spotlight : null));
+  // An answer about one commit says nothing about another, so time travel hides its highlights.
+  const spotlight =
+    storedSpotlight?.commit === graph.analysis?.repository.commitSha ? storedSpotlight : null;
   const lensKind = useExplorerStore((s) => (interactive ? s.lens : "none"));
 
   const [measuredTier, setTier] = useState<QualityTier>(() => readDevice(graph.files.length));
