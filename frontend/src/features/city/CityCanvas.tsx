@@ -81,7 +81,9 @@ export default function CityCanvas({ graph, city, mode, fallback }: CityCanvasPr
   const spotlight = useArchitectStore((s) => (interactive ? s.spotlight : null));
   const lensKind = useExplorerStore((s) => (interactive ? s.lens : "none"));
 
-  const [tier, setTier] = useState<QualityTier>(() => readDevice(graph.files.length));
+  const [measuredTier, setTier] = useState<QualityTier>(() => readDevice(graph.files.length));
+  const lowPower = useExplorerStore((s) => interactive && s.lowPower);
+  const tier: QualityTier = lowPower ? "low" : measuredTier;
   const preset = QUALITY_PRESETS[tier];
   // Antialiasing is fixed when the WebGL context is created, so it keeps its first value.
   const [antialias] = useState(preset.antialias);
@@ -187,8 +189,9 @@ export default function CityCanvas({ graph, city, mode, fallback }: CityCanvasPr
     });
   }, [interactive, tier, ambient.length, city.connections.length, setRenderInfo]);
 
-  const cinematic = cinematicWanted && !reducedMotion;
-  const pulsing = Boolean(highlight.activeId) && showConnections && !reducedMotion;
+  const cinematic = cinematicWanted && !reducedMotion && !lowPower;
+  // Pulses redraw every frame while something is selected. Low power keeps rendering on demand.
+  const pulsing = Boolean(highlight.activeId) && showConnections && !reducedMotion && !lowPower;
   const animated = interactive
     ? cinematic || pulsing || transition.active !== null
     : !reducedMotion;
@@ -268,12 +271,12 @@ export default function CityCanvas({ graph, city, mode, fallback }: CityCanvasPr
               ambientOpacity={ambientOpacity(ambient.length)}
               active={active}
               segments={preset.arcSegments}
-              animate={!reducedMotion}
+              animate={!reducedMotion && !lowPower}
             />
           )}
           <LabelProjector anchors={anchors} overlay={labelOverlay} />
           <QualityProbe onDecline={() => setTier(lowerTier)} />
-          {process.env.NODE_ENV !== "production" && <RenderStats />}
+          {perfProbe && <RenderStats />}
           {interactive ? (
             <ExplorerRig
               bounds={city.bounds}
@@ -288,7 +291,7 @@ export default function CityCanvas({ graph, city, mode, fallback }: CityCanvasPr
             <HeroRig bounds={city.bounds} reducedMotion={reducedMotion} />
           )}
         </Canvas>
-        {interactive && (
+        {interactive && !lowPower && (
           // Atmosphere: a horizon glow and a vignette, drawn over the canvas and never over data.
           <div
             aria-hidden="true"
@@ -351,14 +354,35 @@ function QualityProbe({ onDecline }: { onDecline: () => void }) {
 }
 
 /** Development only: exposes renderer counters for checking performance. */
+/**
+ * Renderer counters and recent frame times, for measuring performance. On in development, and in
+ * production only with `?perf` in the URL, so normal visitors pay nothing for it.
+ */
+const perfProbe =
+  process.env.NODE_ENV !== "production" ||
+  (typeof window !== "undefined" && new URLSearchParams(window.location.search).has("perf"));
+const FRAME_SAMPLES = 600;
+
 function RenderStats() {
-  useFrame(({ gl }) => {
+  const frames = useRef<number[]>([]);
+  useFrame(({ gl }, delta) => {
+    const w = window as unknown as { __GITVERSE_FIRST_FRAME_MS__?: number };
+    // Milliseconds from navigation start to the first rendered frame.
+    w.__GITVERSE_FIRST_FRAME_MS__ ??= Math.round(performance.now());
+    const list = frames.current;
+    list.push(delta * 1000);
+    if (list.length > FRAME_SAMPLES) list.shift();
     const { calls, triangles, lines, frame } = gl.info.render;
+    const { geometries, textures } = gl.info.memory;
     (window as unknown as { __GITVERSE_RENDER_STATS__: unknown }).__GITVERSE_RENDER_STATS__ = {
       calls,
       triangles,
       lines,
       frame,
+      geometries,
+      textures,
+      programs: gl.info.programs?.length ?? 0,
+      frameTimesMs: list,
     };
   });
   return null;
