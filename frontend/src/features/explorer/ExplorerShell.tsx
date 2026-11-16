@@ -62,7 +62,7 @@ export function ExplorerShell({ graph, headerSlot, timeline, architect }: Explor
 
   return (
     <ExplorerDataProvider graph={graph} city={city} adjacency={adjacency}>
-      <div className="relative flex min-h-svh flex-col bg-void lg:h-svh lg:overflow-hidden">
+      <div className="animate-fade-in relative flex min-h-svh flex-col bg-void lg:h-svh lg:overflow-hidden">
         <header className="chrome holo-edge relative z-30 flex h-14 shrink-0 items-center justify-between gap-3 border-b px-3 sm:px-4">
           <div className="flex min-w-0 items-center gap-3 sm:gap-4">
             <Logo />
@@ -213,9 +213,9 @@ function PanelToggles({ architect }: { architect: boolean }) {
           aria-pressed={panels.details && tab === "architect"}
           onClick={openArchitect}
           title="Ask AI Architect about this repository"
-          className={`${toggle} aria-pressed:border-violet/50 aria-pressed:bg-violet/10`}
+          className={`${toggle} aria-pressed:border-rose/50 aria-pressed:bg-rose/10`}
         >
-          <span aria-hidden="true" className="text-violet">
+          <span aria-hidden="true" className="text-rose">
             ✦
           </span>
           Ask AI
@@ -283,7 +283,7 @@ function DetailsTabs({ architect }: { architect: ReactNode }) {
             className="flex-1 border-b-2 border-transparent px-3 py-2.5 font-mono text-[11px] tracking-wide text-muted uppercase transition-colors hover:text-text aria-selected:border-cyan aria-selected:text-text"
           >
             {t.id === "architect" && (
-              <span aria-hidden="true" className="mr-1.5 text-violet">
+              <span aria-hidden="true" className="mr-1.5 text-rose">
                 ✦
               </span>
             )}
