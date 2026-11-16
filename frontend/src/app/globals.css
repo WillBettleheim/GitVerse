@@ -45,6 +45,13 @@
   border-image: linear-gradient(90deg, rgb(34 211 238 / 0.45), rgb(31 42 71), rgb(167 139 250 / 0.45)) 1;
 }
 
+/* Low power: blurring what's behind a panel is costly on weak GPUs, so panels go opaque. */
+:root[data-low-power] .glass {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: var(--color-panel);
+}
+
 @utility holo-text {
   background: linear-gradient(100deg, #e7ecf7 0%, #a5f3fc 45%, #c4b5fd 100%);
   -webkit-background-clip: text;

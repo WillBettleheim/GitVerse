@@ -43,6 +43,8 @@ interface ExplorerState {
   detailsTab: DetailsTab;
   panels: Record<PanelName, boolean>;
   lens: Lens;
+  /** Fewer effects for slow devices or batteries. Every analysis feature stays available. */
+  lowPower: boolean;
   showConnections: boolean;
   cinematic: boolean;
   cameraCommand: CameraCommand;
@@ -60,6 +62,7 @@ interface ExplorerState {
   /** Opens the side panel on AI Architect. */
   openArchitect: () => void;
   setLens: (lens: Lens) => void;
+  setLowPower: (lowPower: boolean) => void;
   /** Breadcrumb navigation: clears the selection and narrows the search to a folder. */
   showFolder: (folder: string | null) => void;
   toggleConnections: () => void;
@@ -84,11 +87,23 @@ const initial = {
   detailsTab: "details" as DetailsTab,
   panels: { files: true, details: true } as Record<PanelName, boolean>,
   lens: "none" as Lens,
+  lowPower: false,
   showConnections: true,
   cinematic: false,
   cameraCommand: { type: "reset", count: 0 } as CameraCommand,
   renderInfo: null,
 };
+
+export const LOW_POWER_KEY = "gitverse:low-power";
+
+/** The saved low-power choice, read once in the browser. */
+export function savedLowPower(): boolean {
+  try {
+    return localStorage.getItem(LOW_POWER_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
 
 export const useExplorerStore = create<ExplorerState>((set, get) => ({
   ...initial,
@@ -109,6 +124,14 @@ export const useExplorerStore = create<ExplorerState>((set, get) => ({
   openArchitect: () =>
     set((s) => ({ detailsTab: "architect", panels: { ...s.panels, details: true } })),
   setLens: (lens) => set({ lens }),
+  setLowPower: (lowPower) => {
+    try {
+      localStorage.setItem(LOW_POWER_KEY, lowPower ? "1" : "0");
+    } catch {
+      // Private browsing or blocked storage: the setting just won't be remembered.
+    }
+    set((s) => ({ lowPower, cinematic: lowPower ? false : s.cinematic }));
+  },
   showFolder: (folder) => set((s) => ({ selectedId: null, filters: { ...s.filters, folder } })),
   toggleConnections: () => set((s) => ({ showConnections: !s.showConnections })),
   toggleCinematic: () =>
@@ -135,5 +158,6 @@ export const useExplorerStore = create<ExplorerState>((set, get) => ({
       cameraCommand: { type: "frame", count: s.cameraCommand.count + 1, ids: [...ids] },
     })),
   setRenderInfo: (renderInfo) => set({ renderInfo }),
-  reset: () => set(initial),
+  // Low power is a device preference, so leaving a repository doesn't turn it off.
+  reset: () => set((s) => ({ ...initial, lowPower: s.lowPower })),
 }));

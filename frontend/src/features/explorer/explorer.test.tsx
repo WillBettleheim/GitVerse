@@ -510,3 +510,25 @@ describe("workspace panels and lenses", () => {
     expect(screen.getByText("Cyclomatic complexity")).toBeInTheDocument();
   });
 });
+
+describe("low power mode", () => {
+  afterEach(() => localStorage.clear());
+
+  it("turns off costly effects, is remembered, and keeps every tool available", async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(<ExplorerShell graph={graph} />);
+    await user.click(screen.getByRole("button", { name: "Low power" }));
+    expect(useExplorerStore.getState().lowPower).toBe(true);
+    expect(document.documentElement).toHaveAttribute("data-low-power");
+    expect(localStorage.getItem("gitverse:low-power")).toBe("1");
+    expect(screen.getByRole("button", { name: "Cinematic" })).toBeDisabled();
+    // Analysis tools are unaffected.
+    expect(screen.getByRole("searchbox", { name: "Search files" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Complexity" })).toBeEnabled();
+    unmount();
+
+    useExplorerStore.setState({ lowPower: false });
+    render(<ExplorerShell graph={graph} />);
+    await waitFor(() => expect(useExplorerStore.getState().lowPower).toBe(true));
+  });
+});

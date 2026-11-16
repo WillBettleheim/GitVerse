@@ -21,6 +21,8 @@ export function CanvasToolbar({
   const renderInfo = useExplorerStore((s) => s.renderInfo);
   const toggleConnections = useExplorerStore((s) => s.toggleConnections);
   const toggleCinematic = useExplorerStore((s) => s.toggleCinematic);
+  const lowPower = useExplorerStore((s) => s.lowPower);
+  const setLowPower = useExplorerStore((s) => s.setLowPower);
   const resetCamera = useExplorerStore((s) => s.resetCamera);
   const fitCamera = useExplorerStore((s) => s.fitCamera);
   const reducedMotion = useReducedMotion();
@@ -49,12 +51,27 @@ export function CanvasToolbar({
         <button
           type="button"
           aria-pressed={cinematic}
-          disabled={reducedMotion}
-          title={reducedMotion ? "Off because your system asks for reduced motion." : undefined}
+          disabled={reducedMotion || lowPower}
+          title={
+            reducedMotion
+              ? "Off because your system asks for reduced motion."
+              : lowPower
+                ? "Off in low power mode."
+                : undefined
+          }
           onClick={toggleCinematic}
           className={`${button} max-sm:hidden`}
         >
           Cinematic
+        </button>
+        <button
+          type="button"
+          aria-pressed={lowPower}
+          onClick={() => setLowPower(!lowPower)}
+          title="Fewer effects for slower devices and longer battery life. Every analysis feature stays available."
+          className={button}
+        >
+          Low power
         </button>
       </div>
       <div className="hidden text-right font-mono text-[11px] leading-relaxed text-faint md:block">

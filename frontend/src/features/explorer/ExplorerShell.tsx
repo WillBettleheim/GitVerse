@@ -15,7 +15,7 @@ import { CanvasToolbar } from "./CanvasToolbar";
 import { DemoBanner } from "./DemoBanner";
 import { FileNavigator } from "./FileNavigator";
 import { Inspector } from "./Inspector";
-import { useExplorerStore, type PanelName } from "./store";
+import { savedLowPower, useExplorerStore, type PanelName } from "./store";
 
 const WEBGL_FALLBACK = (
   <div role="alert" className="absolute inset-0 grid place-items-center p-6 text-center">
@@ -46,8 +46,18 @@ export function ExplorerShell({ graph, headerSlot, timeline, architect }: Explor
   const city = useMemo(() => generateCity(graph), [graph]);
   const adjacency = useMemo(() => buildAdjacency(graph), [graph]);
   const reset = useExplorerStore((s) => s.reset);
+  const lowPower = useExplorerStore((s) => s.lowPower);
+  const setLowPower = useExplorerStore((s) => s.setLowPower);
 
   useEffect(() => reset, [reset]);
+  // The saved choice is read after hydration, so the server and browser render the same markup.
+  useEffect(() => {
+    if (savedLowPower()) setLowPower(true);
+  }, [setLowPower]);
+  useEffect(() => {
+    document.documentElement.toggleAttribute("data-low-power", lowPower);
+    return () => document.documentElement.removeAttribute("data-low-power");
+  }, [lowPower]);
   useKeyboardShortcuts();
 
   return (
