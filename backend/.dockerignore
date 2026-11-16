@@ -1,0 +1,6 @@
+# Only the app and its pins go into the image. Never local settings or caches.
+*
+!app/
+!pyproject.toml
+!requirements.lock
+**/__pycache__
