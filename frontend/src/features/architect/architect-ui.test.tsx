@@ -283,7 +283,7 @@ describe("AI Architect in the city", () => {
     await user.click(within(claims).getAllByRole("button", { name: "E1" })[0]);
     const item = answer.querySelector('[data-evidence="E1"]');
     expect(item?.closest("details")).toHaveAttribute("open");
-    expect(item?.className).toContain("border-violet");
+    expect(item?.className).toContain("border-cyan");
   });
 
   it("locates a listed file without leaving the conversation", async () => {

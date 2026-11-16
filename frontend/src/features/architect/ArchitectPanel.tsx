@@ -203,7 +203,7 @@ function scrollPanelTo(item: HTMLElement) {
 function TurnView({ turn, graph, onRetry }: { turn: Turn; graph: CodeGraph; onRetry: () => void }) {
   return (
     <li className="flex flex-col gap-2">
-      <p className="max-w-[90%] self-end rounded-lg rounded-br-sm border border-cyan/20 bg-cyan/5 px-3 py-1.5 text-sm">
+      <p className="max-w-[90%] self-end rounded-2xl rounded-br-md border border-crimson/60 bg-deep/60 px-3.5 py-2 text-sm shadow-[0_6px_24px_-12px_rgb(204_37_32/0.6)]">
         {turn.question}
       </p>
       {turn.focus && (
@@ -219,7 +219,7 @@ function TurnView({ turn, graph, onRetry }: { turn: Turn; graph: CodeGraph; onRe
             {[92, 78, 55].map((width) => (
               <div
                 key={width}
-                className="h-2 animate-pulse rounded bg-gradient-to-r from-cyan/15 via-violet/15 to-transparent"
+                className="h-2 animate-pulse rounded-full bg-gradient-to-r from-ember/40 via-cyan/25 to-transparent"
                 style={{ width: `${width}%` }}
               />
             ))}
@@ -305,7 +305,7 @@ function AnswerView({
                 type="button"
                 onClick={() => locate(segment.path)}
                 title="Show this file in the city"
-                className="rounded bg-cyan/10 px-1 font-mono text-[12px] text-cyan hover:bg-cyan/20"
+                className="rounded-full border border-cyan/30 bg-cyan/10 px-1.5 font-mono text-[12px] text-cyan transition-colors hover:bg-cyan hover:text-void"
               >
                 {segment.text}
               </button>
@@ -529,7 +529,7 @@ function EvidenceChip({
       type="button"
       onClick={onShow}
       title={`Show evidence ${id}: ${item.title}`}
-      className="ml-1 rounded bg-raised px-1 font-mono text-[10px] text-faint transition-colors hover:bg-violet/20 hover:text-text"
+      className="ml-1 rounded-full border border-crimson/60 bg-deep/50 px-1.5 font-mono text-[10px] text-muted transition-colors hover:border-cyan/70 hover:bg-cyan hover:text-void focus-visible:bg-cyan focus-visible:text-void"
     >
       {id}
     </button>
@@ -604,7 +604,7 @@ function EvidenceItem({
   return (
     <li
       data-evidence={item.id}
-      className={`rounded-md border p-2 transition-colors ${focused ? "border-violet/60 bg-violet/5" : "border-line"}`}
+      className={`rounded-md border p-2 transition-colors ${focused ? "border-cyan/60 bg-cyan/5" : "border-line"}`}
     >
       <p className="font-mono text-[11px]">
         <span className="text-faint">{item.id}</span>{" "}
