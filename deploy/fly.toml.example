@@ -1,0 +1,51 @@
+# Fly.io configuration for the GitVerse API. A template: copy it to backend/fly.toml, set `app`
+# and `primary_region`, and review the costs in docs/DEPLOYMENT.md before deploying.
+#
+#   cd backend && fly launch --no-deploy --copy-config   (creates the app)
+#   fly volumes create gitverse_data --size 3 --region <region>
+#   fly secrets set GITVERSE_ANTHROPIC_API_KEY=... GITVERSE_GITHUB_TOKEN=...
+#   fly deploy
+
+app = "your-gitverse-api"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  GITVERSE_ENVIRONMENT = "production"
+  # The frontend's exact origin, for example https://gitverse.vercel.app
+  GITVERSE_CORS_ORIGINS = "https://your-frontend.example"
+  # Fly's proxy always sets this to the real client address, so rate limits count per client.
+  GITVERSE_CLIENT_IP_HEADER = "Fly-Client-IP"
+  # One or two parser processes fit comfortably in 1 GB alongside the API.
+  GITVERSE_PARSE_WORKERS = "2"
+  GITVERSE_CACHE_MAX_MB = "1024"
+  GITVERSE_EVIDENCE_MAX_MB = "1536"
+
+# Jobs and rate limits live in memory, so exactly one machine.
+[[mounts]]
+  source = "gitverse_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 50
+    hard_limit = 100
+
+[[http_service.checks]]
+  method = "GET"
+  path = "/health"
+  interval = "30s"
+  timeout = "5s"
+  grace_period = "15s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"
