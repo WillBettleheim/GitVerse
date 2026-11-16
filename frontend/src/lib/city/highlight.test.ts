@@ -111,3 +111,18 @@ describe("computeHighlight with search matches", () => {
     expect(highlight.stateOf("b")).toBe("dependent");
   });
 });
+
+describe("time travel changes", () => {
+  it("mutes unchanged files so changes stand out, but only when something changed", () => {
+    const changes = new Map([["a", "modified" as const], ["b", "unchanged" as const]]);
+    const highlight = computeHighlight(adjacency, null, null, { changes });
+    expect(highlight.stateOf("a")).toBe("modified");
+    expect(highlight.stateOf("b")).toBe("unchanged");
+    expect(highlight.stateOf("f")).toBe("unchanged");
+
+    const nothing = computeHighlight(adjacency, null, null, {
+      changes: new Map([["a", "unchanged" as const]]),
+    });
+    expect(nothing.stateOf("a")).toBe("normal");
+  });
+});

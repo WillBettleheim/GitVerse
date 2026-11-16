@@ -26,7 +26,9 @@ export type HighlightState =
   /** Time travel: what happened to this file since the previous snapshot. */
   | "added"
   | "modified"
-  | "renamed";
+  | "renamed"
+  /** Time travel: no change since the previous snapshot. Muted, so changes stand out. */
+  | "unchanged";
 
 export interface Highlight {
   /** The file whose relationships are shown: the selection, or else whatever is hovered. */
@@ -68,11 +70,15 @@ export function computeHighlight(
       return { activeId: null, stateOf: (id) => (insights.has(id) ? "insight" : "dimmed") };
     }
     if (!matches && changes) {
+      const changed = [...changes.values()].some(
+        (kind) => kind === "added" || kind === "modified" || kind === "renamed",
+      );
       return {
         activeId: null,
         stateOf: (id) => {
           const kind = changes.get(id);
-          return kind === "added" || kind === "modified" || kind === "renamed" ? kind : "normal";
+          if (kind === "added" || kind === "modified" || kind === "renamed") return kind;
+          return changed ? "unchanged" : "normal";
         },
       };
     }
