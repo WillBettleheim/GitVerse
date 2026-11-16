@@ -200,9 +200,14 @@ def cancel_analysis(job_id: str, jobs: Annotated[JobManager, Depends(get_jobs)])
 @router.get("/api/v1/analyses/{job_id}/graph", tags=["analysis"])
 def get_analysis_graph(job_id: str, jobs: Annotated[JobManager, Depends(get_jobs)]) -> Response:
     job = _find(jobs, job_id)
-    if job.result is None:
+    result = jobs.result(job)
+    if result is None:
+        if job.status == "complete":
+            raise HTTPException(
+                status.HTTP_410_GONE, "This result is no longer stored. Analyze it again."
+            )
         raise HTTPException(status.HTTP_409_CONFLICT, "This analysis has no result yet.")
     return Response(
-        job.result.model_dump_json(by_alias=True, exclude_none=True),
+        result.model_dump_json(by_alias=True, exclude_none=True),
         media_type="application/json",
     )

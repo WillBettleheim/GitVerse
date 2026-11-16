@@ -19,6 +19,9 @@ logger = logging.getLogger(__name__)
 
 JobStatus = Literal["queued", "running", "complete", "failed"]
 _MAX_JOBS = 200
+# Finished jobs keep their graph in memory only while they're among the most recent. Older ones
+# fetch it from the result cache, so a long-running server's memory doesn't grow with every job.
+_RESULTS_IN_MEMORY = 24
 
 
 @dataclass
@@ -62,6 +65,12 @@ class JobManager:
 
     def get(self, job_id: str) -> Job | None:
         return self._jobs.get(job_id)
+
+    def result(self, job: Job) -> CodeGraph | None:
+        """A finished job's graph: kept in memory, or else read back from the result cache."""
+        if job.result is not None or job.status != "complete" or job.repository is None:
+            return job.result
+        return self._cache.get(cache_key(job.repository.full_name, job.repository.commit_sha))
 
     def find_active(self, ref: RepoRef, commit: str | None = None) -> Job | None:
         """An unfinished job for this repository and commit, which a new request can share."""
@@ -175,6 +184,9 @@ class JobManager:
         job.progress = Progress(stage, job.progress.files_total, job.progress.files_parsed)
 
     def _evict(self) -> None:
+        finished = [job for job in self._jobs.values() if job.finished and job.result is not None]
+        for job in finished[:-_RESULTS_IN_MEMORY]:
+            job.result = None
         while len(self._jobs) > _MAX_JOBS:
             oldest = next((jid for jid, job in self._jobs.items() if job.finished), None)
             if oldest is None:
