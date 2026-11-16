@@ -165,7 +165,8 @@ function RepositoryIdentity({ graph }: { graph: CodeGraph }) {
       >
         {(name ?? owner ?? "?").charAt(0).toUpperCase()}
       </span>
-      <p className="min-w-0 truncate text-sm">
+      {/* The page's main heading: which repository this city is. */}
+      <h1 className="min-w-0 truncate text-sm font-normal">
         {name ? (
           <>
             <span className="text-muted">{owner}</span>
@@ -175,7 +176,7 @@ function RepositoryIdentity({ graph }: { graph: CodeGraph }) {
         ) : (
           <span className="font-medium text-text">{owner}</span>
         )}
-      </p>
+      </h1>
       {sample && (
         <span className="shrink-0 rounded border border-amber/40 px-1.5 font-mono text-[10px] text-amber">
           Sample

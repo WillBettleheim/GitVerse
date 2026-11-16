@@ -532,3 +532,11 @@ describe("low power mode", () => {
     await waitFor(() => expect(useExplorerStore.getState().lowPower).toBe(true));
   });
 });
+
+describe("page structure", () => {
+  it("names the repository as the page's main heading", () => {
+    render(<ExplorerShell graph={graph} />);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("sample / lumen-store");
+    expect(screen.getByRole("heading", { level: 2, name: "Files" })).toBeInTheDocument();
+  });
+});

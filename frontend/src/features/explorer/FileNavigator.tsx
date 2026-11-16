@@ -95,6 +95,8 @@ export function FileNavigator() {
 
   return (
     <div className="flex h-full flex-col">
+      {/* Gives the folder headings below a parent, so the outline reads h1, h2, h3. */}
+      <h2 className="sr-only">Files</h2>
       <div className="border-b border-line p-3">
         <input
           type="search"
