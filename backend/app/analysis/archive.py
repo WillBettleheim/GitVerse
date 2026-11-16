@@ -38,6 +38,8 @@ IGNORED_DIRECTORIES = {
     ".cache",
 }
 _MAX_CONFIG_BYTES = 256 * 1024
+# Matches the CodeGraph schema's limit. A longer path is skipped, rather than failing everything.
+MAX_PATH_LENGTH = 1024
 # A real source line is rarely this long. Minified bundles always have one.
 _MINIFIED_LINE = 2_000
 
@@ -91,6 +93,9 @@ def read_snapshot(
                 path = _repository_path(member.name)
                 if path is None or not member.isreg():
                     # Directories, links and devices carry no source. Links are never followed.
+                    continue
+                if len(path) > MAX_PATH_LENGTH:
+                    snapshot.skipped["path_too_long"] += 1
                     continue
                 snapshot.all_paths.add(path)
 

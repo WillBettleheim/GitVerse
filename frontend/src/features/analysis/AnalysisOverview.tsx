@@ -10,6 +10,7 @@ const SKIP_REASONS: Record<string, string> = {
   declaration_file: "type declarations (.d.ts)",
   minified: "minified bundles",
   too_large: "over the size limit",
+  path_too_long: "with paths over 1,024 characters",
 };
 const LIST_LIMIT = 8;
 

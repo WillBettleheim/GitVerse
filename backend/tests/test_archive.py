@@ -140,3 +140,20 @@ def test_stops_at_the_deadline() -> None:
     with pytest.raises(AnalysisError) as error:
         read_snapshot(tarball_from_directory("web-app"), limits(), deadline=time.monotonic() - 1)
     assert error.value.code == "timeout"
+
+
+def test_skips_a_path_too_long_for_the_graph_instead_of_failing() -> None:
+    from app.analysis.archive import MAX_PATH_LENGTH
+
+    long_path = "deep/" * (MAX_PATH_LENGTH // 5 + 1) + "x.ts"
+    snapshot = read_snapshot(
+        tarball_from_entries(
+            [
+                ("acme-repo-0123456/src/a.ts", b"export const a = 1;\n"),
+                (f"acme-repo-0123456/{long_path}", b"export const b = 2;\n"),
+            ]
+        ),
+        limits(),
+    )
+    assert list(snapshot.files) == ["src/a.ts"]
+    assert snapshot.skipped["path_too_long"] == 1
