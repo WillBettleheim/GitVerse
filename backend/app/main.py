@@ -19,7 +19,7 @@ from app.api.routes import router
 from app.assistant.llm import AnthropicClient, LLMClient
 from app.assistant.service import ArchitectService
 from app.core.config import AnalysisLimits, Settings, get_limits, get_settings
-from app.core.middleware import BodySizeLimitMiddleware
+from app.core.middleware import BodySizeLimitMiddleware, SecurityHeadersMiddleware
 from app.core.ratelimit import SlidingWindowLimiter
 
 
@@ -44,7 +44,8 @@ def create_app(
         pipeline = Pipeline(GitHubClient(http, token), limits)
 
     evidence = EvidenceStore(
-        str(Path(settings.cache_dir).parent / "evidence") if settings.cache_dir else None
+        str(Path(settings.cache_dir).parent / "evidence") if settings.cache_dir else None,
+        max_disk_bytes=settings.evidence_max_mb * 1024 * 1024,
     )
     pipeline.evidence = evidence
     api_key = (
@@ -61,7 +62,9 @@ def create_app(
 
     jobs = JobManager(
         pipeline=pipeline,
-        cache=ResultCache(settings.cache_dir or None),
+        cache=ResultCache(
+            settings.cache_dir or None, max_disk_bytes=settings.cache_max_mb * 1024 * 1024
+        ),
         max_concurrent=settings.max_concurrent_analyses,
         max_queued=settings.max_queued_analyses,
         timeout_seconds=limits.analysis_timeout_seconds,
@@ -74,7 +77,16 @@ def create_app(
         if http is not None:
             await http.aclose()
 
-    app = FastAPI(title="GitVerse API", version=__version__, lifespan=lifespan)
+    # Interactive docs are for development. In production they'd only advertise the attack surface.
+    production = settings.environment == "production"
+    app = FastAPI(
+        title="GitVerse API",
+        version=__version__,
+        lifespan=lifespan,
+        docs_url=None if production else "/docs",
+        redoc_url=None if production else "/redoc",
+        openapi_url=None if production else "/openapi.json",
+    )
     app.state.jobs = jobs
     app.state.analysis_limiter = SlidingWindowLimiter(settings.analysis_requests_per_minute)
     app.state.history_limiter = SlidingWindowLimiter(settings.history_requests_per_minute)
@@ -84,6 +96,7 @@ def create_app(
     app.state.architect = ArchitectService(evidence, llm, settings.max_concurrent_architect)
     app.state.architect_limiter = SlidingWindowLimiter(settings.architect_requests_per_minute)
     app.add_middleware(BodySizeLimitMiddleware, max_bytes=settings.max_request_body_bytes)
+    app.add_middleware(SecurityHeadersMiddleware)
     # Added last so it is outermost: limit rejections still carry CORS headers.
     app.add_middleware(
         CORSMiddleware,

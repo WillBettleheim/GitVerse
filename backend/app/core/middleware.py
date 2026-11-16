@@ -1,9 +1,39 @@
 """Request-level resource limits."""
 
 from starlette.responses import JSONResponse
-from starlette.types import ASGIApp, Receive, Scope, Send
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 _BODY_METHODS = {"POST", "PUT", "PATCH"}
+
+
+class SecurityHeadersMiddleware:
+    """Headers every API response carries: JSON is never sniffed as HTML, never framed."""
+
+    HEADERS = (
+        (b"x-content-type-options", b"nosniff"),
+        (b"x-frame-options", b"DENY"),
+        (b"referrer-policy", b"no-referrer"),
+        (b"cache-control", b"no-store"),
+    )
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        async def send_with_headers(message: Message) -> None:
+            if message["type"] == "http.response.start":
+                existing = {name.lower() for name, _ in message.get("headers", [])}
+                message["headers"] = [
+                    *message.get("headers", []),
+                    *(h for h in self.HEADERS if h[0] not in existing),
+                ]
+            await send(message)
+
+        await self.app(scope, receive, send_with_headers)
 
 
 class BodySizeLimitMiddleware:
