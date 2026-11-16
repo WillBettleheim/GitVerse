@@ -94,7 +94,7 @@ function Level({
                       {fileName(id)}
                     </span>
                     {cycle?.has(id) && (
-                      <span className="shrink-0 font-mono text-[10px] text-amber">cycle</span>
+                      <span className="shrink-0 font-mono text-[10px] text-cycle">cycle</span>
                     )}
                     <span className="min-w-0 max-w-[45%] shrink truncate font-mono text-[10px] text-faint">
                       {id.slice(0, id.lastIndexOf("/") + 1)}

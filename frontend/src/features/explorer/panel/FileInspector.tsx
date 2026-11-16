@@ -84,7 +84,7 @@ export function FileInspector({ file }: { file: FileNode }) {
           <span className="rounded border border-cyan/40 px-1.5 py-0.5 text-cyan">Key module</span>
         )}
         {cycle && (
-          <span className="rounded border border-amber/40 px-1.5 py-0.5 text-amber">
+          <span className="rounded border border-cycle/40 px-1.5 py-0.5 text-cycle">
             In a cycle
           </span>
         )}
@@ -149,8 +149,8 @@ export function FileInspector({ file }: { file: FileNode }) {
       </div>
 
       {cycle && (
-        <div className="mt-5 rounded-md border border-amber/30 bg-amber/5 p-3">
-          <p className="text-sm text-amber">
+        <div className="mt-5 rounded-md border border-cycle/30 bg-cycle/5 p-3">
+          <p className="text-sm text-cycle">
             In an import cycle with {cycle.size - 1} other {cycle.size === 2 ? "file" : "files"}
           </p>
           <p className="mt-1 text-[11px] leading-relaxed text-faint">
@@ -168,7 +168,7 @@ export function FileInspector({ file }: { file: FileNode }) {
                   type="button"
                   title={id}
                   onClick={() => select(id)}
-                  className="font-mono text-xs text-muted hover:text-amber"
+                  className="font-mono text-xs text-muted hover:text-cycle"
                 >
                   {fileName(id)}
                 </button>

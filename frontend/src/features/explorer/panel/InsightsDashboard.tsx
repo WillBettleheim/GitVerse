@@ -55,7 +55,7 @@ export function InsightsDashboard() {
         <Stat
           label="Dependency cycles"
           value={countFormat.format(insights.cycles)}
-          tone={insights.cycles > 0 ? "text-amber" : undefined}
+          tone={insights.cycles > 0 ? "text-cycle" : undefined}
         />
         <Stat label="Lines of code" value={countFormat.format(insights.totalLoc)} />
       </dl>
@@ -86,7 +86,7 @@ export function InsightsDashboard() {
                 const onlyTypes = typeOnly.has(group.join("|"));
                 return (
                   <li key={group.join("|")}>
-                    <p className={`text-[11px] ${onlyTypes ? "text-faint" : "text-amber"}`}>
+                    <p className={`text-[11px] ${onlyTypes ? "text-faint" : "text-cycle"}`}>
                       {group.length} files{onlyTypes ? ", type imports only" : ""}
                     </p>
                     <div className="mt-0.5 flex flex-wrap gap-x-2">
@@ -96,7 +96,7 @@ export function InsightsDashboard() {
                           type="button"
                           title={id}
                           onClick={() => select(id)}
-                          className="font-mono text-xs text-muted hover:text-amber"
+                          className="font-mono text-xs text-muted hover:text-cycle"
                         >
                           {fileName(id)}
                         </button>

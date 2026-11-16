@@ -53,7 +53,7 @@ export function DependencyLegend({ inCycle, searching }: { inCycle: boolean; sea
     if (selectedId && depth !== 1) {
       entries.push({ swatch: "bg-cyan/40", label: "Two or more hops away" });
     }
-    if (selectedId && inCycle) entries.push({ swatch: "bg-amber", label: "Same import cycle" });
+    if (selectedId && inCycle) entries.push({ swatch: "bg-cycle", label: "Same import cycle" });
     entries.push({ swatch: "bg-faint/40", label: "Unrelated" });
   } else if (searching) {
     entries.push({ swatch: "bg-white", label: "Matches the search" });
