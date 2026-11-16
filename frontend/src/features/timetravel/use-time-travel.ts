@@ -40,6 +40,12 @@ export function useTimeTravel(latest: CodeGraph) {
   const queue = useRef<string[]>([]);
   const active = useRef(0);
   const jobIds = useRef(new Set<string>());
+  // Commits queued only because someone selected them. Selecting another drops the ones not
+  // started yet, so clicking quickly along the timeline doesn't queue an analysis per click.
+  const selectedQueue = useRef(new Set<string>());
+  // Only the latest `show` may change the view; an earlier one finishing late is ignored.
+  const showSeq = useRef(0);
+  const showController = useRef<AbortController | null>(null);
 
   const state = useTimeTravelStore;
   // The queue restarts itself when an analysis finishes, through this ref.
@@ -51,6 +57,7 @@ export function useTimeTravel(latest: CodeGraph) {
     if (!signal || !repo) return;
     while (active.current < CONCURRENCY && queue.current.length > 0) {
       const sha = queue.current.shift()!;
+      selectedQueue.current.delete(sha);
       active.current += 1;
       void analyzeSnapshot(repo, sha, signal).finally(() => {
         active.current -= 1;
@@ -108,9 +115,13 @@ export function useTimeTravel(latest: CodeGraph) {
   /** Shows a commit, animating from whatever's on screen, with changes from the backend diff. */
   const show = useCallback(
     async (target: string, options: { from?: string; animate?: boolean } = {}) => {
-      const signal = controller.current?.signal;
+      const page = controller.current?.signal;
       const s = state.getState();
-      if (!signal || !s.repository) return;
+      if (!page || !s.repository) return;
+      const token = ++showSeq.current;
+      showController.current?.abort();
+      showController.current = new AbortController();
+      const signal = AbortSignal.any([page, showController.current.signal]);
       const from = options.from ?? shownSha(s);
       const latest = target === s.latestSha ? null : target;
       if (!from || from === target || options.animate === false) {
@@ -120,10 +131,11 @@ export function useTimeTravel(latest: CodeGraph) {
       s.setDiff({ base: from, head: target, status: "loading" });
       try {
         const diff = await fetchDiff(s.repository, from, target, signal);
+        if (token !== showSeq.current) return;
         state.getState().setDiff({ base: from, head: target, status: "ready", data: diff });
         state.getState().setViewing(latest, { changes: changeIndex(diff), edges: diff.edges });
       } catch (error) {
-        if (signal.aborted) return;
+        if (signal.aborted || token !== showSeq.current) return;
         // The city can still animate by path; renames just aren't known.
         state
           .getState()
@@ -138,12 +150,23 @@ export function useTimeTravel(latest: CodeGraph) {
   const select = useCallback(
     (sha: string) => {
       const s = state.getState();
+      for (const stale of selectedQueue.current) {
+        if (stale === sha) continue;
+        queue.current = queue.current.filter((queued) => queued !== stale);
+        selectedQueue.current.delete(stale);
+        s.forgetSnapshot(stale);
+      }
       if (s.snapshots[sha]?.status === "ready") {
         s.setPending(null);
         void show(sha);
       } else {
         s.setPending(sha);
+        const queuedBefore = queue.current.length;
         request(sha);
+        // Still waiting for a free slot: remember it, so a later selection can drop it.
+        if (queue.current.length > queuedBefore) {
+          selectedQueue.current.add(sha);
+        }
       }
     },
     [request, show, state],

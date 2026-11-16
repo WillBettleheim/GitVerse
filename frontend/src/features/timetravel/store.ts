@@ -53,6 +53,8 @@ interface TimeTravelState {
   setHistory: (commits: Commit[], page: number, hasMore: boolean) => void;
   setHistoryStatus: (status: TimeTravelState["historyStatus"], error?: string | null) => void;
   updateSnapshot: (sha: string, patch: Partial<Snapshot>) => void;
+  /** Forgets a snapshot that was queued but never started, so it can be requested again. */
+  forgetSnapshot: (sha: string) => void;
   setViewing: (sha: string | null, transition: Omit<TransitionRequest, "id"> | null) => void;
   setPending: (sha: string | null) => void;
   setDiff: (diff: DiffState | null) => void;
@@ -103,6 +105,12 @@ export const useTimeTravelStore = create<TimeTravelState>((set) => ({
       };
     }),
   setHistoryStatus: (historyStatus, historyError = null) => set({ historyStatus, historyError }),
+  forgetSnapshot: (sha) =>
+    set((s) => {
+      const snapshots = { ...s.snapshots };
+      delete snapshots[sha];
+      return { snapshots };
+    }),
   updateSnapshot: (sha, patch) =>
     set((s) => ({
       snapshots: { ...s.snapshots, [sha]: { ...s.snapshots[sha], ...patch } as Snapshot },

@@ -61,7 +61,9 @@ interface Api {
 }
 
 /** A small fake of the GitVerse API, enough for time travel. */
-function mockApi(options: { queueSnapshots?: boolean } = {}): Api {
+function mockApi(
+  options: { queueSnapshots?: boolean; compareDelayMs?: (head: string) => number } = {},
+): Api {
   const api: Api = { posts: [], deletes: [], compares: [] };
   const idFor = (commit: string | null) => (commit ?? LATEST).slice(0, 32);
   vi.stubGlobal(
@@ -81,6 +83,8 @@ function mockApi(options: { queueSnapshots?: boolean } = {}): Api {
       }
       if (url.pathname === "/api/v1/compare") {
         api.compares.push(`${url.searchParams.get("base")}..${url.searchParams.get("head")}`);
+        const delay = options.compareDelayMs?.(url.searchParams.get("head") ?? "") ?? 0;
+        if (delay) await new Promise((r) => setTimeout(r, delay));
         return json({
           ...diffSample,
           base: { ...diffSample.base, sha: url.searchParams.get("base") },
@@ -132,7 +136,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-async function renderLoaded(options?: { queueSnapshots?: boolean }) {
+async function renderLoaded(options?: Parameters<typeof mockApi>[0]) {
   const api = mockApi(options);
   const view = render(<AnalysisExplorer owner="acme" name="web-app" />);
   await screen.findByTestId("city-canvas");
@@ -255,5 +259,40 @@ describe("time travel timeline", () => {
     await waitFor(() => expect(api.posts.filter(Boolean).length).toBeGreaterThan(0));
     await act(async () => view.unmount());
     expect(api.deletes.length).toBeGreaterThan(0);
+  });
+});
+
+describe("rapid timeline interaction", () => {
+  it("never lets an earlier, slower comparison replace a later selection", async () => {
+    const user = userEvent.setup();
+    const { api } = await renderLoaded({
+      compareDelayMs: (head) => (head === COMMITS[9].sha ? 400 : 0),
+    });
+    await waitFor(() => expect(analyzed(9) && analyzed(5)).toBe(true));
+    await user.click(option(9));
+    await user.click(option(5));
+    await waitFor(() => expect(useTimeTravelStore.getState().viewing).toBe(COMMITS[5].sha));
+    // Long after the slow comparison for the first click has answered:
+    await act(() => new Promise((r) => setTimeout(r, 500)));
+    expect(api.compares).toContain(`${LATEST}..${COMMITS[9].sha}`);
+    expect(useTimeTravelStore.getState().viewing).toBe(COMMITS[5].sha);
+  });
+
+  it("drops analyses queued for commits the user has already moved past", async () => {
+    const user = userEvent.setup();
+    const { api } = await renderLoaded({ queueSnapshots: true });
+    await waitFor(() => expect(api.posts.filter(Boolean).length).toBe(2));
+    const unanalyzed = COMMITS.map((_, i) => i).filter(
+      (i) => i > 0 && useTimeTravelStore.getState().snapshots[COMMITS[i].sha] === undefined,
+    );
+    const [first, second, third] = unanalyzed;
+    await user.click(option(first));
+    await user.click(option(second));
+    await user.click(option(third));
+    const snapshots = useTimeTravelStore.getState().snapshots;
+    expect(snapshots[COMMITS[first].sha]).toBeUndefined();
+    expect(snapshots[COMMITS[second].sha]).toBeUndefined();
+    expect(snapshots[COMMITS[third].sha]?.status).toBe("queued");
+    expect(useTimeTravelStore.getState().pending).toBe(COMMITS[third].sha);
   });
 });
