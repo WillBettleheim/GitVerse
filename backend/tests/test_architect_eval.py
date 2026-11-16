@@ -11,6 +11,7 @@ import pytest
 from app.analysis.archive import read_snapshot
 from app.analysis.evidence import EvidenceStore
 from app.analysis.pipeline import analyze_snapshot
+from app.assistant.llm import LLMError
 from app.assistant.prompt import SYSTEM_PROMPT, build_user_message
 from app.assistant.retrieval import Budget, retrieve
 from app.assistant.service import MAX_PROMPT_CHARS, ArchitectService
@@ -450,3 +451,35 @@ def test_retrieval_never_blocks_other_requests(
 
     # A blocked event loop would tick once or twice in 0.3 seconds, not dozens of times.
     assert asyncio.run(run()) > 10
+
+
+def test_identical_questions_share_one_model_call(app: Analyzed) -> None:
+    llm = EvidenceCitingLLM()
+    service = ArchitectService(app.store, llm)
+
+    async def run() -> list[ArchitectAnswer]:
+        same = [
+            service.ask("Where is authentication implemented?", app.graph, app.key)
+            for _ in range(3)
+        ]
+        together = await asyncio.gather(*same)
+        again = await service.ask("  where is AUTHENTICATION implemented? ", app.graph, app.key)
+        other = await service.ask(
+            "What depends on this module?", app.graph, app.key, focus="src/db/client.ts"
+        )
+        return [*together, again, other]
+
+    answers = asyncio.run(run())
+    # Three at once and one repeat share a single call; a different question gets its own.
+    assert len(llm.requests) == 2
+    assert answers[0] is answers[1] is answers[2] is answers[3]
+    assert answers[4].search.target == "src/db/client.ts"
+
+
+def test_failed_answers_are_not_reused(app: Analyzed) -> None:
+    llm = ScriptedLLM(error="unavailable")
+    service = ArchitectService(app.store, llm)
+    for _ in range(2):
+        with pytest.raises(LLMError):
+            asyncio.run(service.ask("Where is authentication implemented?", app.graph, app.key))
+    assert len(llm.requests) == 2

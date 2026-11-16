@@ -2,6 +2,8 @@
 
 import asyncio
 import itertools
+import time
+from collections import OrderedDict
 from collections.abc import Callable
 
 from app.analysis.diff import diff_graphs
@@ -32,6 +34,8 @@ from app.schemas.graph import CodeGraph
 # The prompt is checked against this before sending. Retrieval stays well under it.
 MAX_PROMPT_CHARS = 60_000
 MAX_HISTORY_STEPS = 5
+ANSWER_TTL_SECONDS = 15 * 60
+ANSWER_CACHE_ENTRIES = 128
 
 GraphLookup = Callable[[str], CodeGraph | None]
 
@@ -48,6 +52,12 @@ class ArchitectService:
         self._llm = llm
         self._slots = asyncio.Semaphore(max_concurrent)
         self._budget = budget or Budget()
+        # Identical questions about the same commit share one answer: the evidence is the same,
+        # so asking the model again would only cost time and money.
+        self._answers: OrderedDict[tuple[object, ...], tuple[float, ArchitectAnswer]] = (
+            OrderedDict()
+        )
+        self._in_flight: dict[tuple[object, ...], asyncio.Future[ArchitectAnswer]] = {}
 
     @property
     def enabled(self) -> bool:
@@ -60,6 +70,46 @@ class ArchitectService:
         index_key: str,
         focus: str | None = None,
         history: list[CodeGraph] | None = None,
+    ) -> ArchitectAnswer:
+        key = (
+            index_key,
+            " ".join(question.lower().split()),
+            focus,
+            tuple(sorted(g.analysis.repository.commit_sha for g in history or [] if g.analysis)),
+        )
+        cached = self._answers.get(key)
+        if cached is not None and time.monotonic() - cached[0] < ANSWER_TTL_SECONDS:
+            self._answers.move_to_end(key)
+            return cached[1]
+        running = self._in_flight.get(key)
+        if running is not None:
+            return await asyncio.shield(running)
+
+        future: asyncio.Future[ArchitectAnswer] = asyncio.get_running_loop().create_future()
+        self._in_flight[key] = future
+        try:
+            answer = await self._answer(question, graph, index_key, focus, history)
+        except BaseException as exc:
+            future.set_exception(exc)
+            # Nobody else may be waiting; mark it retrieved so it isn't reported as unhandled.
+            future.exception()
+            raise
+        else:
+            future.set_result(answer)
+            self._answers[key] = (time.monotonic(), answer)
+            while len(self._answers) > ANSWER_CACHE_ENTRIES:
+                self._answers.popitem(last=False)
+            return answer
+        finally:
+            self._in_flight.pop(key, None)
+
+    async def _answer(
+        self,
+        question: str,
+        graph: CodeGraph,
+        index_key: str,
+        focus: str | None,
+        history: list[CodeGraph] | None,
     ) -> ArchitectAnswer:
         index = self._evidence.index(index_key)
         commit = graph.analysis.repository.commit_sha if graph.analysis else ""
