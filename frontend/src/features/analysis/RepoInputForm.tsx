@@ -51,13 +51,13 @@ export function RepoInputForm({
           spellCheck={false}
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? errorId : undefined}
-          className={`h-11 min-w-0 flex-1 rounded-md border bg-void/80 px-3 font-mono text-sm placeholder:text-faint focus:outline-none ${
-            error ? "border-amber/70" : "border-line focus:border-cyan/60"
+          className={`h-12 min-w-0 flex-1 rounded-full border bg-deep/40 px-5 font-mono text-sm backdrop-blur placeholder:text-faint transition-colors focus:bg-deep/60 focus:outline-none ${
+            error ? "border-amber/70" : "border-crimson/70 focus:border-cyan/70"
           }`}
         />
         <button
           type="submit"
-          className="h-11 shrink-0 rounded-md bg-text px-4 text-sm font-medium text-void transition-colors hover:bg-cyan"
+          className="cta h-12 shrink-0 rounded-full px-6 text-sm font-semibold"
         >
           Analyze
         </button>

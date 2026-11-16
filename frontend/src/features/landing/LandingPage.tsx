@@ -83,69 +83,79 @@ function StatusTag({ status }: { status: Status }) {
 }
 
 const primaryCta =
-  "inline-flex h-11 items-center justify-center rounded-md bg-text px-5 text-sm font-medium text-void transition-colors hover:bg-cyan";
+  "cta inline-flex h-12 items-center justify-center rounded-full px-6 text-sm font-semibold";
 
 export function LandingPage({ graph }: { graph: CodeGraph }) {
   return (
     <div className="bg-void">
-      <header className="absolute inset-x-0 top-0 z-20 bg-gradient-to-b from-void/80 to-transparent">
+      <header className="fixed inset-x-0 top-4 z-30 px-4">
         <nav
           aria-label="Main"
-          className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-8"
+          className="glass mx-auto flex h-14 max-w-5xl items-center justify-between rounded-full py-2 pr-2 pl-5 shadow-[0_10px_40px_-12px_rgb(0_0_0/0.6)]"
         >
           <Logo />
-          <div className="flex items-center gap-6 text-sm text-muted">
-            <a href="#map" className="hidden transition-colors hover:text-text sm:block">
+          <div className="flex items-center gap-1 text-sm text-muted sm:gap-2">
+            <a href="#map" className="hidden rounded-full px-3 py-2 transition-colors hover:text-text sm:block">
               The map
             </a>
-            <a href="#pipeline" className="hidden transition-colors hover:text-text sm:block">
+            <a href="#pipeline" className="hidden rounded-full px-3 py-2 transition-colors hover:text-text sm:block">
               Pipeline
             </a>
-            <a href="#safety" className="hidden transition-colors hover:text-text sm:block">
+            <a href="#safety" className="hidden rounded-full px-3 py-2 transition-colors hover:text-text md:block">
               Safety
             </a>
-            <Link href="/explore/demo" className="text-text transition-colors hover:text-cyan">
-              Open demo →
+            <Link href="/explore/demo" className="cta rounded-full px-4 py-2 text-sm font-semibold">
+              Open demo
             </Link>
           </div>
         </nav>
       </header>
 
       <main>
-        <section className="relative flex min-h-svh items-end overflow-hidden lg:items-center">
-          <div aria-hidden="true" className="absolute inset-0">
+        <section className="relative isolate flex min-h-svh items-end overflow-hidden lg:items-center">
+          {/* Light: a crimson floor glow and a gold key light that drift slowly. Decorative. */}
+          <div aria-hidden="true" className="absolute inset-0 -z-20 bg-void">
+            <div className="animate-glow-drift absolute -bottom-1/3 -left-1/4 h-[80vh] w-[80vw] rounded-full bg-[radial-gradient(closest-side,rgb(204_37_32/0.45),rgb(142_17_21/0.25)_45%,transparent)] blur-2xl" />
+            <div className="animate-glow-drift absolute -top-1/4 right-[-10%] h-[70vh] w-[55vw] rounded-full bg-[radial-gradient(closest-side,rgb(245_215_110/0.22),rgb(204_37_32/0.12)_50%,transparent)] blur-2xl [animation-delay:-11s]" />
+          </div>
+          <div aria-hidden="true" className="absolute inset-y-0 right-0 -z-10 w-full lg:w-[62%]">
             <HeroCity graph={graph} />
           </div>
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute inset-0 bg-gradient-to-t from-void via-void/75 to-void/10 lg:bg-gradient-to-r lg:from-void lg:via-void/70 lg:to-transparent"
+            className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-t from-void via-void/70 to-void/10 lg:bg-gradient-to-r lg:from-void lg:via-void/75 lg:to-transparent"
           />
-          <div className="relative z-10 mx-auto w-full max-w-7xl px-4 pt-24 pb-20 sm:px-8 lg:pb-8">
-            <p className="glass inline-flex items-center gap-2 rounded-full px-3 py-1 font-mono text-[11px] tracking-wide text-muted">
-              <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-cyan shadow-[0_0_8px_var(--color-cyan)]" />
-              Analyzing public JavaScript and TypeScript repositories
+          <div aria-hidden="true" className="scanlines animate-scan-drift pointer-events-none absolute inset-0 -z-10" />
+          <div aria-hidden="true" className="grain pointer-events-none absolute inset-0 -z-10" />
+
+          <div className="animate-rise-in relative mx-auto w-full max-w-7xl px-4 pt-28 pb-20 sm:px-8 lg:pb-10">
+            <p className="glass inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 font-mono text-[11px] tracking-wide text-muted">
+              <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-cyan shadow-[0_0_10px_var(--color-cyan)]" />
+              Real analysis of public JavaScript and TypeScript repositories
             </p>
-            <h1 className="mt-6 max-w-3xl text-5xl leading-[1.02] font-semibold tracking-tight text-balance sm:text-7xl">
-              Explore Code <span className="holo-text">Like a Universe.</span>
+            <h1 className="mt-7 max-w-4xl text-[3.4rem] leading-[0.95] font-medium tracking-[-0.035em] text-balance text-text sm:text-8xl lg:text-[7.25rem]">
+              Your Code.
+              <br />
+              <span className="text-text/90">An Entire Universe.</span>
             </h1>
-            <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted">
-              GitVerse rebuilds a codebase as a 3D city you can fly through. Folders are districts,
-              files are buildings, imports light up the sky between them, and an AI architect
-              answers questions with the evidence to back them.
+            <p className="mt-7 max-w-xl text-lg leading-relaxed text-muted">
+              GitVerse rebuilds a repository as a living 3D city. Folders become districts, files
+              become buildings shaped by their complexity, imports light the sky between them, and
+              an AI architect answers questions with the evidence to back them.
             </p>
             <div className="mt-9">
               <RepoInputForm />
             </div>
-            <div className="mt-6">
+            <div className="mt-7">
               <p className="font-mono text-[11px] tracking-wide text-faint uppercase">
                 Try a real repository
               </p>
-              <ul className="mt-2 flex flex-wrap gap-2">
+              <ul className="mt-2.5 flex flex-wrap gap-2">
                 {FEATURED.map(({ repo, blurb }) => (
                   <li key={repo}>
                     <Link
                       href={`/explore/gh/${repo}`}
-                      className="glass group inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors hover:border-cyan/50"
+                      className="glass group inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm transition-colors hover:border-cyan/60"
                     >
                       <span className="font-mono text-text group-hover:text-cyan">{repo}</span>
                       <span className="text-xs text-faint">{blurb}</span>
@@ -154,7 +164,7 @@ export function LandingPage({ graph }: { graph: CodeGraph }) {
                 ))}
               </ul>
             </div>
-            <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm">
+            <div className="mt-7 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm">
               <Link href="/explore/demo" className="text-text transition-colors hover:text-cyan">
                 Or explore the demo city →
               </Link>
@@ -163,12 +173,12 @@ export function LandingPage({ graph }: { graph: CodeGraph }) {
               </a>
             </div>
           </div>
-          <p className="absolute right-4 bottom-4 z-10 font-mono text-[11px] text-faint sm:right-8">
+          <p className="absolute right-4 bottom-4 font-mono text-[11px] text-faint sm:right-8">
             Rendered from sample data, not a real repository
           </p>
         </section>
 
-        <section id="map" className="scroll-mt-8 border-t border-line">
+        <section id="map" className="scroll-mt-24 border-t border-line">
           <div className="mx-auto grid max-w-7xl gap-12 px-4 py-24 sm:px-8 lg:grid-cols-[1fr_2fr]">
             <div>
               <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
@@ -199,8 +209,9 @@ export function LandingPage({ graph }: { graph: CodeGraph }) {
           </div>
         </section>
 
-        <section id="pipeline" className="scroll-mt-8 border-t border-line bg-ink">
-          <div className="mx-auto max-w-7xl px-4 py-24 sm:px-8">
+        <section id="pipeline" className="relative scroll-mt-24 border-t border-line bg-ink">
+          <div aria-hidden="true" className="scanlines pointer-events-none absolute inset-0" />
+          <div className="relative mx-auto max-w-7xl px-4 py-24 sm:px-8">
             <h2 className="max-w-2xl text-3xl font-semibold tracking-tight sm:text-4xl">
               From repository to skyline in five stages.
             </h2>
@@ -219,7 +230,7 @@ export function LandingPage({ graph }: { graph: CodeGraph }) {
           </div>
         </section>
 
-        <section id="safety" className="scroll-mt-8 border-t border-line">
+        <section id="safety" className="scroll-mt-24 border-t border-line">
           <div className="mx-auto grid max-w-7xl gap-12 px-4 py-24 sm:px-8 lg:grid-cols-2">
             <div>
               <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">

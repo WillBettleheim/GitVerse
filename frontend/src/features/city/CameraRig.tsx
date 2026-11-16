@@ -25,6 +25,8 @@ import type { CameraCommand } from "@/features/explorer/store";
 
 const HERO_ZOOM = 1.2;
 const HERO_SPEED = 0.04;
+/** How far, in radians, the hero turns towards the pointer. */
+const HERO_PARALLAX = 0.22;
 const CINEMATIC_FOLLOW_RATE = 1.8;
 
 function applyPose(
@@ -205,14 +207,33 @@ export function HeroRig({
 }) {
   const invalidate = useThree((state) => state.invalidate);
   const distance = useMemo(() => cameraDistance(bounds), [bounds]);
+  // The pointer's position across the page, -1 to 1, and the eased value that follows it.
+  const pointer = useRef({ x: 0, y: 0 });
+  const eased = useRef({ x: 0, y: 0 });
   useEffect(() => invalidate(), [invalidate]);
+  useEffect(() => {
+    if (reducedMotion) return;
+    const onMove = (event: PointerEvent) => {
+      pointer.current.x = (event.clientX / window.innerWidth) * 2 - 1;
+      pointer.current.y = (event.clientY / window.innerHeight) * 2 - 1;
+    };
+    window.addEventListener("pointermove", onMove, { passive: true });
+    return () => window.removeEventListener("pointermove", onMove);
+  }, [reducedMotion]);
 
-  useFrame((state) => {
+  useFrame((state, delta) => {
     const fit = fitPose(bounds, state.size);
+    const follow = smoothingAmount(delta, 2.5);
+    eased.current.x += (pointer.current.x - eased.current.x) * follow;
+    eased.current.y += (pointer.current.y - eased.current.y) * follow;
     const pose: CameraPose = {
       ...fit,
       zoom: fit.zoom * HERO_ZOOM,
-      azimuth: fit.azimuth + (reducedMotion ? 0 : state.clock.elapsedTime * HERO_SPEED),
+      // A slow orbit, leaning gently towards the pointer: the city responds as you move.
+      azimuth:
+        fit.azimuth +
+        (reducedMotion ? 0 : state.clock.elapsedTime * HERO_SPEED + eased.current.x * HERO_PARALLAX),
+      elevation: fit.elevation + (reducedMotion ? 0 : -eased.current.y * HERO_PARALLAX * 0.25),
     };
     applyPose(state.camera, null, pose, distance);
   });
