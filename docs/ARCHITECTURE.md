@@ -102,6 +102,30 @@ the toolbar says so. Selecting a file always shows all its own connections, up t
 **Camera:** true orthographic isometric view. All pose maths is in `lib/city/camera.ts` with no
 Three.js dependency, and its tests check the results against a real Three.js camera.
 
+## Visual language: Crimson Ember
+
+The interface uses a warm palette defined once, as tokens in `frontend/src/app/globals.css`:
+a dark crimson base (`#190B0B`), burgundy surfaces, soft crimson borders, and baby yellow
+(`#F5D76E`) reserved for what matters: the primary action, the selection and what it depends on.
+Texture (fine vertical scanlines and film grain) and drifting light are decorative, sit behind
+content, and stop under reduced motion.
+
+Colour in the city always carries meaning, and the warm theme never overrides it:
+
+| Meaning | Colour |
+| --- | --- |
+| Selected file | White |
+| Imports (what the selection depends on) | Gold |
+| Imported by (what depends on the selection) | Coral |
+| Import cycle | Teal: deliberately cool, so a warning never blends into the warm city |
+| Named in an AI Architect answer | Lilac |
+| Time travel: added, modified, renamed | Green, orange, sky blue, with unchanged files muted |
+| District | One of eight warm hues, from the top-level folder |
+
+Windows glow gold in proportion to their building's brightness, so a dimmed building's windows
+dim with it and highlights stay readable. All text colours meet WCAG AA contrast on every
+surface; ember red is used only for surfaces and arcs, never for text.
+
 ## Frontend layout [built]
 
 ```
@@ -251,7 +275,7 @@ evidence only, with no explanation written on top. `/api/v1/meta` reports whethe
 are on.
 
 **In the explorer**, AI Architect is a tab beside the inspector, for real analyses only. An
-answer's files light up in the city (pink), its relationships are drawn as arcs where the import
+answer's files light up in the city (lilac), its relationships are drawn as arcs where the import
 really exists, "Focus camera" frames those buildings from the current angle, and each file opens
 in the inspector or on GitHub at the exact lines, pinned to the analyzed commit. Selecting a file
 makes it the subject of the next question. Answers stay tied to the commit they were asked about.

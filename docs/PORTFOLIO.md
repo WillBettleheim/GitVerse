@@ -66,7 +66,7 @@ FastAPI, Tree-sitter and NetworkX on the back end; Claude for the AI architect; 
 | 0:00 | Landing page | "GitVerse turns a GitHub repository into a 3D city. I'll paste a real one." |
 | 0:06 | Type `pmndrs/zustand`, press Analyze; progress steps tick by | "It downloads one commit, parses every file with Tree-sitter, and resolves the imports into a graph. It never runs the code." |
 | 0:16 | The city appears; slow orbit | "Folders are districts. Height is complexity, footprint is lines of code, and the beacons mark the files everything depends on." |
-| 0:26 | Click the tallest beacon, `vanilla.ts` | "Selecting a file traces its dependencies: violet arcs are the seventeen files that import it. The inspector shows its metrics and links to the source at this exact commit." |
+| 0:26 | Click the tallest beacon, `vanilla.ts` | "Selecting a file traces its dependencies: the coral arcs are the seventeen files that import it. The inspector shows its metrics and links to the source at this exact commit." |
 | 0:36 | Press "Open as graph", then back | "The same relationships as a graph, if you prefer it flat." |
 | 0:42 | Click an earlier commit on the timeline | "This is the repository's real history. Selecting an earlier commit analyzes it and animates the city: removed files sink, changed ones resize, and the panel lists exactly what changed." |
 | 0:54 | Press Latest, open Ask AI, choose "Which files are central to the architecture?" | "And I can ask questions. AI Architect answers from evidence the analysis found, marks what's verified versus inferred, and lights up the files it names." |

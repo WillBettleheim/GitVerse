@@ -13,7 +13,7 @@ import { join } from "node:path";
 
 const BASE = process.argv[2] ?? "http://localhost:3000";
 const REPO = process.env.SCREENSHOT_REPO ?? "pmndrs/zustand";
-const OUT = new URL("../docs/images/", import.meta.url).pathname;
+const OUT = process.env.SCREENSHOT_OUT ?? new URL("../docs/images/", import.meta.url).pathname;
 const CHROME =
   process.env.CHROME ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const PORT = 9334;
