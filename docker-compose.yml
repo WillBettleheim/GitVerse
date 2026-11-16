@@ -1,0 +1,52 @@
+# Runs GitVerse locally from production builds: http://localhost:3000
+#
+#   docker compose up --build
+#
+# AI Architect explanations need a key in your shell (never in this file):
+#   GITVERSE_ANTHROPIC_API_KEY=... docker compose up --build
+# Without one, AI Architect still shows the evidence it finds.
+
+services:
+  api:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      GITVERSE_CORS_ORIGINS: http://localhost:3000
+      GITVERSE_ANTHROPIC_API_KEY: ${GITVERSE_ANTHROPIC_API_KEY:-}
+      GITVERSE_GITHUB_TOKEN: ${GITVERSE_GITHUB_TOKEN:-}
+      GITVERSE_PARSE_WORKERS: "2"
+    volumes:
+      - gitverse-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    stop_grace_period: 25s
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /app/.next/cache
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  gitverse-data:

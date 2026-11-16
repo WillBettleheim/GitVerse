@@ -1,4 +1,4 @@
-.PHONY: help setup dev dev-frontend dev-backend check test lint typecheck build format
+.PHONY: help setup dev dev-frontend dev-backend check test lint typecheck build format up down
 
 PYTHON ?= $(shell command -v python3.13 || command -v python3.12)
 VENV := backend/.venv
@@ -43,3 +43,9 @@ check: lint typecheck test build ## Run everything CI should run
 
 format: ## Auto-format backend code
 	cd backend && $(BIN)/ruff format . && $(BIN)/ruff check --fix .
+
+up: ## Run both services from production Docker images on ports 3000 and 8000
+	docker compose up --build -d
+
+down: ## Stop the Docker services (cached analyses are kept in a volume)
+	docker compose down
