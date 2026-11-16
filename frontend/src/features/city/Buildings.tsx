@@ -9,13 +9,16 @@ import type { Building } from "@/lib/city/layout";
 import { createBuildingMaterial } from "./building-material";
 
 const CLICK_DRAG_TOLERANCE_PX = 4;
-const CYAN = new THREE.Color("#22d3ee");
-const VIOLET = new THREE.Color("#a78bfa");
+// What a selection depends on is gold; what depends on it is peach. Cycles are a cool teal so a
+// warning never blends into the warm city. Time travel keeps the conventional green and orange.
+const CYAN = new THREE.Color("#f5d76e");
+const VIOLET = new THREE.Color("#ff7a59");
 const WHITE = new THREE.Color("#ffffff");
-const AMBER = new THREE.Color("#fbbf24");
-const EMERALD = new THREE.Color("#34d399");
-const SKY = new THREE.Color("#38bdf8");
-const ROSE = new THREE.Color("#f472b6");
+const AMBER = new THREE.Color("#5eead4");
+const ORANGE = new THREE.Color("#fdba74");
+const EMERALD = new THREE.Color("#4ade80");
+const SKY = new THREE.Color("#7dd3fc");
+const ROSE = new THREE.Color("#d6c4ff");
 const HOT = new THREE.Color("#fde68a");
 
 /** Writes the colour a building gets in a highlight state. Reuses `out` to avoid allocation. */
@@ -23,7 +26,7 @@ export function applyHighlightColor(out: THREE.Color, base: string, state: Highl
   out.set(base);
   switch (state) {
     case "selected":
-      return out.lerp(WHITE, 0.4).multiplyScalar(1.7);
+      return out.lerp(WHITE, 0.7).multiplyScalar(1.9);
     case "hovered":
       return out.lerp(WHITE, 0.25).multiplyScalar(1.5);
     case "dependency":
@@ -45,11 +48,13 @@ export function applyHighlightColor(out: THREE.Color, base: string, state: Highl
     case "added":
       return out.lerp(EMERALD, 0.75).multiplyScalar(1.35);
     case "modified":
-      return out.lerp(AMBER, 0.6).multiplyScalar(1.2);
+      return out.lerp(ORANGE, 0.65).multiplyScalar(1.25);
     case "renamed":
       return out.lerp(SKY, 0.7).multiplyScalar(1.3);
     case "dimmed":
       return out.multiplyScalar(0.14);
+    case "unchanged":
+      return out.multiplyScalar(0.38);
     default:
       return out;
   }

@@ -17,10 +17,10 @@ import {
 } from "@/lib/timetravel/transition";
 
 export const CHANGE_COLORS: Record<ChangeKind, string | null> = {
-  added: "#34d399",
-  removed: "#fb7185",
-  modified: "#fbbf24",
-  renamed: "#38bdf8",
+  added: "#4ade80",
+  removed: "#e7d5cf",
+  modified: "#fdba74",
+  renamed: "#7dd3fc",
   unchanged: null,
 };
 const ARC_SEGMENTS = 16;

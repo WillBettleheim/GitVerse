@@ -15,11 +15,11 @@ const HEADER = 40;
 const PADDING = 24;
 
 const EDGE_COLORS: Record<EdgeRole, string> = {
-  import: "#22d3ee",
-  importer: "#a78bfa",
-  cycle: "#fbbf24",
-  added: "#34d399",
-  insight: "#f472b6",
+  import: "#f5d76e",
+  importer: "#ff7a59",
+  cycle: "#5eead4",
+  added: "#4ade80",
+  insight: "#d6c4ff",
 };
 
 function columnLabel(depth: number): string {

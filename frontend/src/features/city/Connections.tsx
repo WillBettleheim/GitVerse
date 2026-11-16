@@ -7,11 +7,13 @@ import { arcPoint, arcTangent, roofOf, type Vec3 } from "@/lib/city/arcs";
 import type { EdgeRole, RoleEdge } from "@/lib/graph/dependencies";
 import type { Building, Connection } from "@/lib/city/layout";
 
-const OUTGOING = new THREE.Color("#22d3ee");
-const INCOMING = new THREE.Color("#a78bfa");
-const CYCLE = new THREE.Color("#fbbf24");
-const ADDED = new THREE.Color("#34d399");
-const INSIGHT = new THREE.Color("#f472b6");
+const OUTGOING = new THREE.Color("#f5d76e");
+const INCOMING = new THREE.Color("#ff7a59");
+const CYCLE = new THREE.Color("#5eead4");
+const ADDED = new THREE.Color("#4ade80");
+const INSIGHT = new THREE.Color("#d6c4ff");
+/** Every import when nothing is selected: thin ember threads. */
+const AMBIENT = new THREE.Color("#e2483c");
 const ROLE_COLORS: Record<EdgeRole, THREE.Color> = {
   import: OUTGOING,
   importer: INCOMING,
@@ -221,7 +223,7 @@ export const Connections = memo(function Connections({
   const byId = useMemo(() => new Map(buildings.map((b) => [b.id, b])), [buildings]);
 
   const ambientGeometry = useMemo(
-    () => buildArcGeometry(ambient, byId, segments, () => OUTGOING),
+    () => buildArcGeometry(ambient, byId, segments, () => AMBIENT),
     [ambient, byId, segments],
   );
   useEffect(() => () => ambientGeometry.dispose(), [ambientGeometry]);
