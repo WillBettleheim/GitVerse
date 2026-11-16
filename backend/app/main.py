@@ -1,3 +1,4 @@
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -33,6 +34,7 @@ def create_app(
 ) -> FastAPI:
     settings = settings or get_settings()
     limits = limits or get_limits()
+    _configure_logging(settings)
 
     http: httpx.AsyncClient | None = None
     if pipeline is None:
@@ -101,6 +103,7 @@ def create_app(
     app.state.diff_cache = TtlCache[dict[str, object]](3600, 64)
     app.state.architect = ArchitectService(evidence, llm, settings.max_concurrent_architect)
     app.state.architect_limiter = SlidingWindowLimiter(settings.architect_requests_per_minute)
+    app.state.client_ip_header = settings.client_ip_header or None
     app.add_middleware(BodySizeLimitMiddleware, max_bytes=settings.max_request_body_bytes)
     app.add_middleware(SecurityHeadersMiddleware)
     # Graphs are large, repetitive JSON: compression cuts a 5,000-file graph by about 90%.
@@ -118,6 +121,23 @@ def create_app(
     app.include_router(history_router)
     app.include_router(architect_router)
     return app
+
+
+def _configure_logging(settings: Settings) -> None:
+    logger = logging.getLogger("app")
+    logger.setLevel(settings.log_level)
+    if not logger.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+        logger.addHandler(handler)
+        logger.propagate = False
+    if settings.environment == "production":
+        local = [o for o in settings.cors_origin_list if "localhost" in o or "127.0.0.1" in o]
+        if local or not settings.cors_origin_list:
+            logger.warning(
+                "GITVERSE_CORS_ORIGINS is %r. Set it to the deployed frontend's origin.",
+                settings.cors_origins,
+            )
 
 
 app = create_app()

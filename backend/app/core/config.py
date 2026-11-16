@@ -30,6 +30,11 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="GITVERSE_", env_file=".env", extra="ignore")
 
     environment: str = "development"
+    # A header your hosting proxy always sets to the real client address, such as Fly-Client-IP.
+    # Leave empty when nothing sits in front of the API: the connecting address is used.
+    client_ip_header: str | None = Field(default=None, pattern=r"^[A-Za-z0-9-]{0,64}$")
+    # DEBUG, INFO, WARNING or ERROR. Applies to GitVerse's own logs; uvicorn logs requests.
+    log_level: str = Field(default="INFO", pattern=r"^(DEBUG|INFO|WARNING|ERROR)$")
     # Comma-separated, because a JSON list is awkward to write in a .env file.
     cors_origins: str = "http://localhost:3000"
     max_request_body_bytes: int = Field(default=16_384, gt=0)
@@ -62,7 +67,12 @@ class Settings(BaseSettings):
 
     @property
     def cors_origin_list(self) -> list[str]:
-        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+        # A wildcard would let any website call the API from its visitors' browsers.
+        return [
+            origin.strip()
+            for origin in self.cors_origins.split(",")
+            if origin.strip() and origin.strip() != "*"
+        ]
 
 
 @lru_cache
