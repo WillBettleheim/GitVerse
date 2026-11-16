@@ -48,6 +48,8 @@ Demo mode doesn't need the backend. To run only the frontend, use `make dev-fron
 | `make check` | Runs lint, typecheck, test and build |
 | `make format` | Auto-formats backend code |
 
+Benchmarks and measured results are in [docs/PERFORMANCE.md](docs/PERFORMANCE.md).
+
 Security checks: `make lint` includes Ruff's Bandit rules. Dependency audits run with
 `npm audit` in `frontend/` and `pip-audit` in `backend/` (`.venv/bin/pip install pip-audit`).
 
