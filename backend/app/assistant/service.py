@@ -66,8 +66,11 @@ class ArchitectService:
         if index is not None and index.commit_sha != commit:
             index = None
         wants_history = "history" in detect_intents(question)
-        changes = _changes(history or [], graph) if wants_history else []
-        retrieval = retrieve(
+        changes = await asyncio.to_thread(_changes, history or [], graph) if wants_history else []
+        # CPU-bound on large repositories, so it runs off the event loop and never stalls other
+        # requests while it searches.
+        retrieval = await asyncio.to_thread(
+            retrieve,
             question,
             graph,
             index,

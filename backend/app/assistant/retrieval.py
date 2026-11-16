@@ -10,16 +10,27 @@ import re
 from collections import Counter, defaultdict
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
+from functools import lru_cache
 from typing import Literal
 
 from app.analysis.evidence import FileEvidence, RepositoryIndex
 from app.schemas.diff import SnapshotDiff
 from app.schemas.graph import CodeGraph, FileNode
 
-Intent = Literal["central", "dependents", "cycles", "history", "overview"]
+Intent = Literal["central", "dependents", "cycles", "history", "overview", "relationship"]
 EvidenceKind = Literal[
-    "file", "snippet", "imports", "importers", "cycle", "hubs", "overview", "change"
+    "file",
+    "snippet",
+    "imports",
+    "importers",
+    "cycle",
+    "hubs",
+    "overview",
+    "change",
+    "relationship",
 ]
+# Longest import chain followed when explaining how two files are connected.
+MAX_PATH_HOPS = 6
 SourceReader = Callable[[str], bytes | None]
 
 
@@ -174,7 +185,8 @@ GENERIC_STEMS = frozenset({"index", "main", "mod", "types", "type", "utils", "ut
 INTENT_PATTERNS: dict[Intent, re.Pattern[str]] = {
     "central": re.compile(
         r"\b(central|core|important|key|hubs?|critical|most (connected|used|imported)|backbone|"
-        r"heart of)\b"
+        r"heart of|fan-?in|(highest|most|largest|biggest|top)\b[\w\s-]{0,30}\b(incoming|importers|"
+        r"imported|depended|dependents|dependencies))\b"
     ),
     "dependents": re.compile(
         r"\b(depends? on|dependen(ts|cies|cy)|imports?|imported|importers?|uses|used by|relies? "
@@ -184,6 +196,9 @@ INTENT_PATTERNS: dict[Intent, re.Pattern[str]] = {
     "history": re.compile(
         r"\b(over time|changed?|changes|evolv\w*|evolution|history|histor\w+|grew|grown|growth|"
         r"since|over the commits|timeline)\b"
+    ),
+    "relationship": re.compile(
+        r"\b(relationship|relate[sd]?|related|between|connected|connection|connects?|linked)\b"
     ),
     "overview": re.compile(
         r"\b(explain (this|the) (repo|repository|project|codebase)|overview|new contributor|"
@@ -198,6 +213,12 @@ _PATHISH = re.compile(r"[\w@.\-]+(?:/[\w@.\-]+)*\.(?:[cm]?[jt]sx?|d\.ts)\b")
 
 def split_identifier(text: str) -> list[str]:
     return [part.lower() for word in _WORD.findall(text) for part in _CAMEL.findall(word)]
+
+
+@lru_cache(maxsize=65_536)
+def _identifier_words(name: str) -> frozenset[str]:
+    """The words in a symbol name. Cached: large repositories repeat names constantly."""
+    return frozenset(split_identifier(name))
 
 
 def question_terms(question: str) -> list[str]:
@@ -273,6 +294,15 @@ def rank_files(
     weights = _expanded(terms)
     concepts = _concepts_of(terms)
     ranked = []
+    # Whether a word matches any search word, decided once per word for the whole repository.
+    memo: dict[str, bool] = {}
+
+    def word_matches(word: str) -> bool:
+        found = memo.get(word)
+        if found is None:
+            found = memo[word] = any(_matches(word, t) for t in weights)
+        return found
+
     for file in graph.files:
         score = 0.0
         reasons: list[str] = []
@@ -288,11 +318,10 @@ def rank_files(
 
         entry = index.files.get(file.path) if index else None
         if entry is not None:
-            symbol_hits = [
-                s.name
-                for s in entry.symbols
-                if any(_matches(w, t) for w in split_identifier(s.name) for t in weights)
-            ]
+            # Each distinct word is compared with the search words once, not once per symbol.
+            words = {w for s in entry.symbols for w in _identifier_words(s.name)}
+            hits = {w for w in words if word_matches(w)}
+            symbol_hits = [s.name for s in entry.symbols if _identifier_words(s.name) & hits]
             if symbol_hits:
                 score += min(3, len(symbol_hits)) * 1.5
                 reasons.append("declares " + ", ".join(symbol_hits[:3]))
@@ -378,6 +407,9 @@ def retrieve(
         _cycles(builder, graph, imports_of, chosen, budget)
     if target is not None and ("dependents" in intents or target in named or target == focus):
         _dependencies(builder, target, importers_of, imports_of, budget)
+    pair = _pair(named, focus)
+    if pair is not None and ("relationship" in intents or len(named) >= 2):
+        _relationship(builder, pair, imports_of, budget)
 
     reasons = {r.path: r.reasons for r in ranked}
     snippets = 0
@@ -599,27 +631,103 @@ def _dependencies(
 
 
 def _hubs(builder: _Builder, graph: CodeGraph, budget: Budget) -> None:
-    analysis = graph.analysis
-    if analysis is not None and analysis.hubs:
-        hubs = [(h.id, h.incoming, h.outgoing) for h in analysis.hubs]
-    else:
-        incoming: Counter[str] = Counter(e.target for e in graph.edges)
-        outgoing: Counter[str] = Counter(e.source for e in graph.edges)
-        hubs = sorted(
-            ((f.id, incoming[f.id], outgoing[f.id]) for f in graph.files),
-            key=lambda h: (-(h[1] + h[2]), h[0]),
-        )[:12]
-        hubs = [h for h in hubs if h[1] + h[2] > 0]
-    most_imported = sorted(hubs, key=lambda h: (-h[1], h[0]))
+    # Counted from every edge, not from the capped hub list, so the most imported file is never
+    # missed just because it imports little itself.
+    incoming: Counter[str] = Counter(e.target for e in graph.edges)
+    outgoing: Counter[str] = Counter(e.source for e in graph.edges)
+    hubs = sorted(
+        ((f.id, incoming[f.id], outgoing[f.id]) for f in graph.files),
+        key=lambda h: (-(h[1] + h[2]), h[0]),
+    )
+    hubs = [h for h in hubs if h[1] + h[2] > 0][:12]
+    most_imported = sorted(
+        ((f.id, incoming[f.id]) for f in graph.files if incoming[f.id] > 0),
+        key=lambda h: (-h[1], h[0]),
+    )[:5]
     builder.add(
         "hubs",
         "Most connected files",
         facts=[
             "Ranked by imports in plus imports out, counted from the dependency graph.",
             *(f"{path}: imported by {i}, imports {o}" for path, i, o in hubs[: budget.max_listed]),
-            "Most imported: " + ", ".join(f"{p} ({i})" for p, i, _ in most_imported[:5] if i > 0),
+            "Highest incoming dependency count (files that import it directly): "
+            + (", ".join(f"{p} ({i})" for p, i in most_imported) or "none"),
         ],
-        files=[h[0] for h in hubs[: budget.max_listed]],
+        files=list(dict.fromkeys([*(p for p, _ in most_imported), *(h[0] for h in hubs)]))[
+            : budget.max_listed
+        ],
+    )
+
+
+def _pair(named: list[str], focus: str | None) -> tuple[str, str] | None:
+    """The two files a relationship question is about: two named, or one named and the selection."""
+    candidates = list(dict.fromkeys([*named, *([focus] if focus else [])]))
+    return (candidates[0], candidates[1]) if len(candidates) >= 2 else None
+
+
+def _shortest_path(
+    start: str, goal: str, imports_of: dict[str, list[EdgeFact]]
+) -> list[EdgeFact] | None:
+    """The shortest chain of imports from start to goal, following edges in the graph."""
+    previous: dict[str, EdgeFact | None] = {start: None}
+    frontier = [start]
+    for _ in range(MAX_PATH_HOPS):
+        following: list[str] = []
+        for node in frontier:
+            for edge in sorted(imports_of.get(node, []), key=lambda e: e.target):
+                if edge.target in previous:
+                    continue
+                previous[edge.target] = edge
+                if edge.target == goal:
+                    chain: list[EdgeFact] = []
+                    step: EdgeFact | None = edge
+                    while step is not None:
+                        chain.append(step)
+                        step = previous[step.source]
+                    return chain[::-1]
+                following.append(edge.target)
+        frontier = following
+        if not frontier:
+            break
+    return None
+
+
+def _relationship(
+    builder: _Builder,
+    pair: tuple[str, str],
+    imports_of: dict[str, list[EdgeFact]],
+    budget: Budget,
+) -> None:
+    first, second = pair
+    facts: list[str] = []
+    edges: list[EdgeFact] = []
+    for source, target in ((first, second), (second, first)):
+        chain = _shortest_path(source, target, imports_of)
+        if chain is None:
+            facts.append(
+                f"{source} does not reach {target} through imports"
+                f" (searched up to {MAX_PATH_HOPS} steps)."
+            )
+            continue
+        kind = "imports it directly" if len(chain) == 1 else f"reaches it in {len(chain)} steps"
+        facts.append(f"{source} {kind}:")
+        facts.extend(
+            f"  {e.source} -> {e.target}"
+            + (f" (line {e.line} of {e.source})" if e.line else "")
+            + (" [type-only]" if e.type_only else "")
+            for e in chain
+        )
+        edges.extend(chain)
+    if len(facts) == 2 and all("does not reach" in f for f in facts):
+        facts.append("Neither depends on the other, directly or indirectly.")
+    elif all(any(e.source == s for e in edges) for s in pair):
+        facts.append("Each reaches the other, so they are part of an import cycle.")
+    builder.add(
+        "relationship",
+        f"How {first} and {second} are connected",
+        facts=facts,
+        files=list(dict.fromkeys([first, second, *(e.target for e in edges)]))[: budget.max_listed],
+        edges=edges[: budget.max_listed],
     )
 
 
