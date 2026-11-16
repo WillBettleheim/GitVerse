@@ -5,12 +5,14 @@ from pathlib import Path
 import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 
 from app import __version__
 from app.analysis.cache import ResultCache
 from app.analysis.evidence import EvidenceStore
 from app.analysis.github import GitHubClient
 from app.analysis.jobs import JobManager
+from app.analysis.parallel import ParserPool
 from app.analysis.pipeline import Pipeline
 from app.api.architect import router as architect_router
 from app.api.history import HISTORY_TTL_SECONDS, TtlCache
@@ -48,6 +50,9 @@ def create_app(
         max_disk_bytes=settings.evidence_max_mb * 1024 * 1024,
     )
     pipeline.evidence = evidence
+    parser = ParserPool(settings.parse_workers)
+    if pipeline.parser is None:
+        pipeline.parser = parser
     api_key = (
         settings.anthropic_api_key.get_secret_value().strip() if settings.anthropic_api_key else ""
     )
@@ -74,6 +79,7 @@ def create_app(
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         yield
         await jobs.shutdown()
+        parser.shutdown()
         if http is not None:
             await http.aclose()
 
@@ -97,6 +103,8 @@ def create_app(
     app.state.architect_limiter = SlidingWindowLimiter(settings.architect_requests_per_minute)
     app.add_middleware(BodySizeLimitMiddleware, max_bytes=settings.max_request_body_bytes)
     app.add_middleware(SecurityHeadersMiddleware)
+    # Graphs are large, repetitive JSON: compression cuts a 5,000-file graph by about 90%.
+    app.add_middleware(GZipMiddleware, minimum_size=2048, compresslevel=6)
     # Added last so it is outermost: limit rejections still carry CORS headers.
     app.add_middleware(
         CORSMiddleware,
