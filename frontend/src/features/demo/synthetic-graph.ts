@@ -5,7 +5,7 @@ import { parseCodeGraph, type CodeGraph, type FileNode, type ImportEdge } from "
  * they're labelled "demo" like all other sample data. Seeded, so each size is always the same.
  */
 
-export const SYNTHETIC_SIZES = [100, 500, 1000] as const;
+export const SYNTHETIC_SIZES = [100, 500, 1000, 2500, 5000] as const;
 export type SyntheticSize = (typeof SYNTHETIC_SIZES)[number];
 
 export function isSyntheticSize(value: number): value is SyntheticSize {
