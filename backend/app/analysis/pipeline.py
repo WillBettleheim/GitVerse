@@ -1,7 +1,6 @@
 """Runs one analysis end to end: fetch, read, parse, resolve, build."""
 
 import asyncio
-import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import IO, Literal
@@ -12,7 +11,8 @@ from app.analysis.errors import AnalysisError
 from app.analysis.evidence import EvidenceStore, blob_sha, build_index
 from app.analysis.github import CommitInfo, GitHubClient, RepositoryMetadata
 from app.analysis.graph import build_code_graph, resolve_imports
-from app.analysis.parser import ParsedFile, parse_source
+from app.analysis.parallel import ParserPool, parse_sequentially
+from app.analysis.parser import ParsedFile
 from app.analysis.resolver import ModuleResolver
 from app.core.config import AnalysisLimits
 from app.schemas.graph import CodeGraph, RepositoryInfo
@@ -46,6 +46,7 @@ def analyze_snapshot(
     deadline: float | None = None,
     on_progress: ProgressCallback | None = None,
     evidence: EvidenceStore | None = None,
+    parser: ParserPool | None = None,
 ) -> CodeGraph:
     """The synchronous, CPU-bound part. Checks the deadline between files, since a thread
     can't be interrupted from outside. With an evidence store, also saves what AI Architect may
@@ -56,14 +57,18 @@ def analyze_snapshot(
             "No JavaScript or TypeScript source files were found to analyze.",
         )
     progress = Progress(stage="parsing", files_total=len(snapshot.files))
-    parsed: list[ParsedFile] = []
-    for path in sorted(snapshot.files):
-        if deadline is not None and time.monotonic() > deadline:
-            raise AnalysisError("timeout", "Parsing the repository took too long.")
-        parsed.append(parse_source(path, snapshot.files[path]))
-        progress.files_parsed += 1
-        if on_progress and (progress.files_parsed % 25 == 0):
+
+    def parsed_so_far(count: int) -> None:
+        progress.files_parsed = count
+        if on_progress:
             on_progress(progress)
+
+    parsed: list[ParsedFile] = (
+        parser.parse(snapshot.files, deadline, parsed_so_far)
+        if parser is not None
+        else parse_sequentially(snapshot.files, deadline, parsed_so_far)
+    )
+    progress.files_parsed = len(parsed)
 
     progress.stage = "building_graph"
     if on_progress:
@@ -121,10 +126,12 @@ class Pipeline:
         github: GitHubClient,
         limits: AnalysisLimits,
         evidence: EvidenceStore | None = None,
+        parser: ParserPool | None = None,
     ) -> None:
         self.github = github
         self.limits = limits
         self.evidence = evidence
+        self.parser = parser
 
     async def identify(self, ref: RepoRef, commit: str | None = None) -> RepositoryInfo:
         """Repository details and a pinned commit: the one asked for, or the latest."""
@@ -157,6 +164,22 @@ class Pipeline:
             snapshot = await asyncio.to_thread(read_snapshot, archive, self.limits, deadline)
         finally:
             archive.close()
+        return await self.run_snapshot(repository, snapshot, deadline, on_progress)
+
+    async def run_snapshot(
+        self,
+        repository: RepositoryInfo,
+        snapshot: SourceSnapshot,
+        deadline: float,
+        on_progress: ProgressCallback,
+    ) -> CodeGraph:
+        """The CPU-bound analysis of files already read, off the event loop."""
         return await asyncio.to_thread(
-            analyze_snapshot, repository, snapshot, deadline, on_progress, self.evidence
+            analyze_snapshot,
+            repository,
+            snapshot,
+            deadline,
+            on_progress,
+            self.evidence,
+            self.parser,
         )

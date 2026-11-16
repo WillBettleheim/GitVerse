@@ -36,6 +36,8 @@ class Settings(BaseSettings):
     # Analysis jobs running at once, and waiting beyond those, before new requests are refused.
     max_concurrent_analyses: int = Field(default=2, gt=0)
     max_queued_analyses: int = Field(default=8, ge=0)
+    # Processes that parse source. Unset means up to 4, leaving one core for the API.
+    parse_workers: int | None = Field(default=None, ge=1, le=32)
     # New analysis requests allowed per client address per minute.
     # Time travel analyzes several commits in a row, and commits already cached don't count.
     analysis_requests_per_minute: int = Field(default=20, gt=0)
