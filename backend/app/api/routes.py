@@ -12,7 +12,7 @@ from app import __version__
 from app.analysis.errors import AnalysisError
 from app.analysis.jobs import Job, JobManager
 from app.core.config import AnalysisLimits, get_limits
-from app.core.ratelimit import SlidingWindowLimiter
+from app.core.ratelimit import SlidingWindowLimiter, client_address
 from app.schemas.graph import RepositoryInfo
 from app.services.repo_ref import InvalidRepoRef, parse_repo_ref
 
@@ -160,7 +160,7 @@ async def create_analysis(
             job = jobs.complete_from_cache(ref, body.commit, cached)
             return JSONResponse(_view(job), status_code=status.HTTP_202_ACCEPTED)
 
-    client = request.client.host if request.client else "unknown"
+    client = client_address(request)
     retry_after = limiter.check(client)
     if retry_after is not None:
         return JSONResponse(

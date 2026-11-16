@@ -10,7 +10,7 @@ from app.analysis.cache import cache_key
 from app.analysis.jobs import JobManager
 from app.assistant.llm import LLMError, LLMErrorCode
 from app.assistant.service import ArchitectService
-from app.core.ratelimit import SlidingWindowLimiter
+from app.core.ratelimit import SlidingWindowLimiter, client_address
 from app.schemas.assistant import ArchitectAnswer, QuestionRequest
 from app.services.repo_ref import InvalidRepoRef, parse_repo_ref
 
@@ -75,7 +75,7 @@ async def ask(
         )
 
     limiter: SlidingWindowLimiter = request.app.state.architect_limiter
-    retry_after = limiter.check(request.client.host if request.client else "unknown")
+    retry_after = limiter.check(client_address(request))
     if retry_after is not None:
         return _error(
             "rate_limited",

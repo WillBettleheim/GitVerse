@@ -43,3 +43,34 @@ def test_unknown_job_ids_reveal_nothing() -> None:
             response = client.get(f"/api/v1/analyses/{job_id}")
             assert response.status_code == 404
             assert "Traceback" not in response.text
+
+
+def test_rate_limits_ignore_spoofed_headers_by_default() -> None:
+    with make_client(analysis_requests_per_minute=1) as client:
+        ok = client.post(
+            "/api/v1/analyses", json={"repository": "acme/a"}, headers={"Fly-Client-IP": "1.1.1.1"}
+        )
+        spoofed = client.post(
+            "/api/v1/analyses", json={"repository": "acme/b"}, headers={"Fly-Client-IP": "2.2.2.2"}
+        )
+    assert ok.status_code == 202
+    assert spoofed.status_code == 429
+
+
+def test_rate_limits_use_the_configured_proxy_header() -> None:
+    with make_client(analysis_requests_per_minute=1, client_ip_header="Fly-Client-IP") as client:
+        first = client.post(
+            "/api/v1/analyses", json={"repository": "acme/a"}, headers={"Fly-Client-IP": "1.1.1.1"}
+        )
+        other_client = client.post(
+            "/api/v1/analyses", json={"repository": "acme/b"}, headers={"Fly-Client-IP": "2.2.2.2"}
+        )
+        same_client = client.post(
+            "/api/v1/analyses", json={"repository": "acme/c"}, headers={"Fly-Client-IP": "1.1.1.1"}
+        )
+    assert [first.status_code, other_client.status_code, same_client.status_code] == [202, 202, 429]
+
+
+def test_an_empty_proxy_header_setting_is_ignored() -> None:
+    with make_client(client_ip_header="") as client:
+        assert client.get("/health").status_code == 200

@@ -5,6 +5,8 @@ import time
 from collections import deque
 from collections.abc import Callable
 
+from starlette.requests import Request
+
 
 class SlidingWindowLimiter:
     def __init__(
@@ -38,3 +40,18 @@ class SlidingWindowLimiter:
             return
         for client in [c for c, h in self._hits.items() if not h or now - h[-1] >= self._window]:
             del self._hits[client]
+
+
+def client_address(request: Request) -> str:
+    """Who a request counts against for rate limits.
+
+    By default, the connecting address. Behind a platform proxy that overwrites a header with the
+    real client address (such as Fly.io's Fly-Client-IP), name that header in
+    GITVERSE_CLIENT_IP_HEADER. X-Forwarded-For isn't used: clients can prepend to it.
+    """
+    header: str | None = getattr(request.app.state, "client_ip_header", None)
+    if header:
+        value = request.headers.get(header, "").strip()
+        if value:
+            return value[:64]
+    return request.client.host if request.client else "unknown"

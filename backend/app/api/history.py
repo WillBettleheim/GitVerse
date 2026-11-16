@@ -13,7 +13,7 @@ from app.analysis.diff import diff_graphs
 from app.analysis.errors import AnalysisError
 from app.analysis.github import MAX_COMMITS_PER_PAGE, GitHubClient
 from app.analysis.jobs import JobManager
-from app.core.ratelimit import SlidingWindowLimiter
+from app.core.ratelimit import SlidingWindowLimiter, client_address
 from app.schemas.diff import SnapshotDiff
 from app.services.repo_ref import InvalidRepoRef, RepoRef, parse_repo_ref
 
@@ -83,7 +83,7 @@ def _ref(repository: str) -> RepoRef:
 
 def _limit(request: Request) -> JSONResponse | None:
     limiter: SlidingWindowLimiter = request.app.state.history_limiter
-    retry_after = limiter.check(request.client.host if request.client else "unknown")
+    retry_after = limiter.check(client_address(request))
     if retry_after is None:
         return None
     return JSONResponse(
