@@ -220,13 +220,7 @@ export function TimelineBar({ controls }: { controls: TimeTravelControls }) {
         ) : null}
       </p>
 
-      <div
-        ref={track}
-        role="listbox"
-        aria-label="Commits, oldest to newest"
-        onKeyDown={onKeyDown}
-        className="flex items-end gap-0 overflow-x-auto px-3 pt-1 pb-2"
-      >
+      <div className="flex items-end overflow-x-auto px-3 pt-1 pb-2">
         {hasMore && (
           <button
             type="button"
@@ -237,47 +231,63 @@ export function TimelineBar({ controls }: { controls: TimeTravelControls }) {
             {historyStatus === "loading" ? "Loading…" : "Load older"}
           </button>
         )}
-        {oldestFirst.map((commit, index) => {
-          const month = monthLabels[index];
-          const newMonth = month !== null;
-          const isShown = commit.sha === current;
-          const marker =
-            compare?.base === commit.sha ? "A" : compare?.head === commit.sha ? "B" : null;
-          return (
-            <div key={commit.sha} className="relative flex w-6 shrink-0 flex-col items-center">
-              <span className="h-3.5 font-mono text-[9px] text-violet">{marker}</span>
-              <button
-                type="button"
-                role="option"
-                data-sha={commit.sha}
-                aria-selected={isShown}
-                tabIndex={isShown ? 0 : -1}
-                aria-label={`${shortSha(commit.sha)}, ${formatDate(commit.committedAt)}: ${commit.summary}. ${statusText(snapshots[commit.sha])}.`}
-                onClick={() => choose(commit.sha)}
-                onPointerEnter={() => setHovered(commit.sha)}
-                onPointerLeave={() => setHovered(null)}
-                onFocus={() => setHovered(commit.sha)}
-                onBlur={() => setHovered(null)}
-                className="grid h-6 w-6 place-items-center rounded focus-visible:outline-2"
+        {/* A listbox may only own options, so the button above stays outside it, and every
+            wrapper and decoration inside is hidden from assistive technology. */}
+        <div
+          ref={track}
+          role="listbox"
+          aria-label="Commits, oldest to newest"
+          onKeyDown={onKeyDown}
+          className="flex shrink-0 items-end gap-0"
+        >
+          {oldestFirst.map((commit, index) => {
+            const month = monthLabels[index];
+            const newMonth = month !== null;
+            const isShown = commit.sha === current;
+            const marker =
+              compare?.base === commit.sha ? "A" : compare?.head === commit.sha ? "B" : null;
+            return (
+              <div
+                key={commit.sha}
+                role="none"
+                className="relative flex w-6 shrink-0 flex-col items-center"
               >
+                <span aria-hidden="true" className="h-3.5 font-mono text-[9px] text-violet">
+                  {marker}
+                </span>
+                <button
+                  type="button"
+                  role="option"
+                  data-sha={commit.sha}
+                  aria-selected={isShown}
+                  tabIndex={isShown ? 0 : -1}
+                  aria-label={`${marker ? `Comparison ${marker}: ` : ""}${shortSha(commit.sha)}, ${formatDate(commit.committedAt)}: ${commit.summary}. ${statusText(snapshots[commit.sha])}.`}
+                  onClick={() => choose(commit.sha)}
+                  onPointerEnter={() => setHovered(commit.sha)}
+                  onPointerLeave={() => setHovered(null)}
+                  onFocus={() => setHovered(commit.sha)}
+                  onBlur={() => setHovered(null)}
+                  className="grid h-6 w-6 place-items-center rounded focus-visible:outline-2"
+                >
+                  <span
+                    aria-hidden="true"
+                    className={dotClass(snapshots[commit.sha], isShown, pending === commit.sha)}
+                  />
+                </button>
                 <span
                   aria-hidden="true"
-                  className={dotClass(snapshots[commit.sha], isShown, pending === commit.sha)}
+                  className={`mt-0.5 h-3 font-mono text-[9px] whitespace-nowrap ${newMonth ? "text-faint" : "text-transparent"}`}
+                >
+                  {newMonth ? month : "·"}
+                </span>
+                <span
+                  aria-hidden="true"
+                  className={`absolute top-[1.55rem] left-0 h-px w-full ${index === 0 ? "left-1/2 w-1/2" : ""} ${index === oldestFirst.length - 1 ? "w-1/2" : ""} -z-10 bg-line`}
                 />
-              </button>
-              <span
-                aria-hidden="true"
-                className={`mt-0.5 h-3 font-mono text-[9px] whitespace-nowrap ${newMonth ? "text-faint" : "text-transparent"}`}
-              >
-                {newMonth ? month : "·"}
-              </span>
-              <span
-                aria-hidden="true"
-                className={`absolute top-[1.55rem] left-0 h-px w-full ${index === 0 ? "left-1/2 w-1/2" : ""} ${index === oldestFirst.length - 1 ? "w-1/2" : ""} -z-10 bg-line`}
-              />
-            </div>
-          );
-        })}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </section>
   );

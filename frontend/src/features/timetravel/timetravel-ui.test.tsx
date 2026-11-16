@@ -296,3 +296,28 @@ describe("rapid timeline interaction", () => {
     expect(useTimeTravelStore.getState().pending).toBe(COMMITS[third].sha);
   });
 });
+
+describe("timeline accessibility", () => {
+  it("gives the commit listbox only options, and names the compared commits", async () => {
+    const user = userEvent.setup();
+    await renderLoaded();
+    const listbox = within(timeline()).getByRole("listbox", { name: "Commits, oldest to newest" });
+    // Everything the listbox exposes is an option; controls like "Load older" live outside it.
+    expect(within(listbox).queryAllByRole("button")).toHaveLength(0);
+    expect(within(listbox).getAllByRole("option")).toHaveLength(10);
+    // Wrappers carry no role, and anything else inside is hidden from assistive technology.
+    for (const wrapper of Array.from(listbox.children)) {
+      expect(wrapper).toHaveAttribute("role", "none");
+      for (const part of Array.from(wrapper.children)) {
+        if (part.getAttribute("role") !== "option") {
+          expect(part).toHaveAttribute("aria-hidden", "true");
+        }
+      }
+    }
+
+    await waitFor(() => expect(analyzed(9) && analyzed(5)).toBe(true));
+    await user.click(within(timeline()).getByRole("button", { name: "Compare" }));
+    await user.click(option(9));
+    expect(option(9).getAttribute("aria-label")).toMatch(/^Comparison A: /);
+  });
+});
